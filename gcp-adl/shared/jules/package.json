@@ -1,0 +1,19 @@
+{
+  "name": "@gcp-adl/jules",
+  "version": "0.1.0",
+  "description": "Jules API client for GCP ADL",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "lint": "eslint src/**/*.ts"
+  },
+  "dependencies": {
+    "axios": "^1.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3"
+  }
+}

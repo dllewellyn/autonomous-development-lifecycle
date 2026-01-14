@@ -1,0 +1,24 @@
+{
+  "name": "@gcp-adl/troubleshooter",
+  "version": "0.1.0",
+  "description": "Troubleshooter service for GCP ADL - Provides answers to Jules",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@gcp-adl/jules": "file:../../shared/jules",
+    "@gcp-adl/gemini": "file:../../shared/gemini",
+    "@gcp-adl/github": "file:../../shared/github",
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.11.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}

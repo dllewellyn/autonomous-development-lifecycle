@@ -1,0 +1,19 @@
+{
+  "name": "@gcp-adl/state",
+  "version": "0.1.0",
+  "description": "State management for GCP ADL using Cloud Storage",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "lint": "eslint src/**/*.ts"
+  },
+  "dependencies": {
+    "@google-cloud/storage": "^7.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3"
+  }
+}
