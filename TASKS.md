@@ -1,6 +1,7 @@
 # Task Backlog
 
 - [ ] Create an HTTP-triggered Cloud Function for on-demand scraping.
+- [ ] HIGH PRIORITY Create a github actions workflow to run lint, test and build on pull-request
 - [ ] Add monitoring and alerting for the scheduled Firebase Function.
 - [ ] Align ESLint configuration with Constitution (Strict rules + JSDoc enforcement).
 - [ ] Verify/Update Husky pre-commit hooks to run lint and tests before commit.
