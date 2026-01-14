@@ -83,6 +83,7 @@ jobs:
       - name: Commit changes
         env:
           COMMIT_MESSAGE: "chore: update agent memory and restart loop"
+          GITHUB_PAT: ${{ secrets.GITHUB_PAT }}
         run: ./.github/scripts/commit-changes.sh AGENTS.md TASKS.md .ralph-state.json
 
       - name: Trigger Planner
