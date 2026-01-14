@@ -66,7 +66,23 @@ The GCP ADL (Google Cloud Platform Autonomous Development Lifecycle) is a cloud-
                   ▼
          ┌─────────────────┐
          │  GitHub (PRs)   │
-         └─────────────────┘
+         └─────────┬───────┘
+                   │
+          PR merged│to main
+                   ▼
+         ┌─────────────────┐
+         │   Strategist    │◄── GitHub Webhook
+         │  (Cloud Run)    │
+         └────────┬────────┘
+                  │
+                  │ (publishes)
+                  ▼
+         ┌─────────────────┐
+         │   Pub/Sub       │
+         │   (Planner)     │
+         └────────┬────────┘
+                  │
+                  └───► Back to Planner (new cycle)
 ```
 
 ## Core Components
@@ -298,7 +314,7 @@ Scheduler → Heartbeat → Check State → Check Jules
                                     ↓
                          Jules executes → Creates PR
                                     ↓
-                              GitHub webhook
+                              GitHub webhook (PR)
                                     ↓
                                 Enforcer
                                     ↓
@@ -306,17 +322,20 @@ Scheduler → Heartbeat → Check State → Check Jules
                                     ↓
                               Push to main
                                     ↓
-                              GitHub webhook
+                          GitHub webhook (push to main)
                                     ↓
                                Strategist
                                     ↓
                     Extract Lessons (Gemini)
                                     ↓
-                     Update AGENTS.md & TASKS.md
+                     Update AGENTS.md & TASKS.md (GitHub)
                                     ↓
-                              Restart Loop
+                              Restart Loop (State)
                                     ↓
-                           Trigger Planner
+                    Trigger Planner (Pub/Sub) ───┐
+                                                  │
+                                                  └──► Back to Planner
+                                                       (starts new cycle)
 ```
 
 ### 2. Blocked Task Flow

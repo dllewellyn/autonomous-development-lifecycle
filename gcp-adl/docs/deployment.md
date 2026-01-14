@@ -236,6 +236,7 @@ Configure in GitHub:
    - Content type: `application/json`
    - Events: Select "Pushes"
    - Active: ✓
+   - **Note**: When triggered by push to main, Strategist updates AGENTS.md/TASKS.md and triggers Planner via Pub/Sub to start the next cycle
 
 ## Verification
 

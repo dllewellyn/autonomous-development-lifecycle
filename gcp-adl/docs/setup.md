@@ -178,6 +178,12 @@ gcloud pubsub subscriptions create adl-troubleshooter-sub \
    - Content type: `application/json`
    - Events: Select "Pushes"
    - Branch filter: `refs/heads/main` (or your default branch)
+   
+   **Note**: When a PR is merged to main, this webhook triggers the Strategist, which:
+   - Extracts lessons learned and updates AGENTS.md
+   - Updates TASKS.md to mark completed tasks
+   - Restarts the loop
+   - Triggers the Planner to start the next task
 
 ## Step 9: Initialize State
 

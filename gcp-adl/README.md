@@ -56,8 +56,15 @@ The GCP-ADL system replaces GitHub Actions workflows with Google Cloud services:
                │
                ▼ (Merge)
     ┌──────────────────────────┐
-    │  Strategist (Webhook)    │◀── GitHub Webhook
+    │  Strategist (Webhook)    │◀── GitHub Webhook (push to main)
     │  Updates AGENTS.md       │
+    └──────────┬───────────────┘
+               │
+               │ (triggers via Pub/Sub)
+               ▼
+    ┌──────────────────────────┐
+    │   Planner (Pub/Sub)      │
+    │   Start next task        │
     └──────────────────────────┘
 ```
 

@@ -74,7 +74,7 @@ GitHub Webhook → Strategist (Cloud Run) → Update Files → Pub/Sub
 - **Actions**: Check state → Check Jules → Trigger appropriate service
 
 #### Planner
-- **Trigger**: Pub/Sub (from Heartbeat)
+- **Trigger**: Pub/Sub (from Heartbeat or Strategist)
 - **Purpose**: Create Jules tasks
 - **Actions**: Fetch repo files → Generate plan (Gemini) → Create Jules session
 
@@ -90,8 +90,8 @@ GitHub Webhook → Strategist (Cloud Run) → Update Files → Pub/Sub
 
 #### Strategist
 - **Trigger**: GitHub webhook (push to main)
-- **Purpose**: Learn from merges
-- **Actions**: Get diff → Extract lessons (Gemini) → Update AGENTS.md/TASKS.md
+- **Purpose**: Learn from merges and restart cycle
+- **Actions**: Get diff → Extract lessons (Gemini) → Update AGENTS.md/TASKS.md → Trigger Planner
 
 ### 3. Infrastructure
 
