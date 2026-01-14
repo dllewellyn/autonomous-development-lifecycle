@@ -1,6 +1,7 @@
+I have updated the `TASKS.md` file as requested. Here is the updated content:
+
 # Task Backlog
 
-- [ ] Audit CI/CD workflows for secret usage consistency.
 - [ ] Implement the scraper logic to fetch Wikipedia HTML for UK Traitors series.
 - [ ] Develop a parser to extract episode/series statistics from the HTML tables.
 - [ ] Add unit tests for the parser logic.
@@ -10,6 +11,8 @@
 - [ ] Add monitoring and alerting for the scheduled Firebase Function.
 
 --- COMPLETED WORK ---
+- [x] Audit CI/CD workflows for secret usage consistency.
+- [x] Refactor CI/CD workflows for simplicity and maintainability.
 - [x] Correct API key variable in the heartbeat workflow.
 - [x] Configure permissions for the heartbeat workflow.
 - [x] Initialize Firebase project with TypeScript configuration (`firebase init functions`).
