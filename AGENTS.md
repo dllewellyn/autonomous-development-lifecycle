@@ -6,6 +6,18 @@
 
 ## Wednesday, January 14, 2026
 
+The latest changes focus on improving agent protocol and enforcing development standards.
+
+### 1. Maintain Clean Data in Project Documents
+- **Observation:** A conversational preamble was removed from the `AGENTS.md` file itself.
+- **Lesson:** Agents must not add conversational text or preambles to managed files. The file content should be treated as data, and output should be raw and direct to maintain document integrity and prevent meta-commentary from polluting version control.
+
+### 2. Enforce Code Quality Through Automation
+- **Observation:** The task to enforce a 90% test coverage threshold was completed and moved to the "COMPLETED WORK" section in `TASKS.md`.
+- **Lesson:** Implementing and enforcing automated quality gates, such as strict test coverage requirements in the CI/CD pipeline, is a critical step in maintaining a high-quality codebase. It ensures that all contributions meet a defined standard before integration.
+
+## Wednesday, January 14, 2026
+
 The latest changes introduce the capability to persist the scraped data into cloud storage, providing valuable lessons in building robust data pipelines and managing infrastructure.
 
 ### 1. Persist Data for Future Use
