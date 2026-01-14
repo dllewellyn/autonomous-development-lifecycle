@@ -23,47 +23,21 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
         run: ./.github/scripts/prepare-pr-context.sh
 
-      - name: Read context files
-        id: context
-        run: |
-          echo "constitution<<EOF" >> $GITHUB_OUTPUT
-          cat CONSTITUTION.md >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-          
-          echo "tasks<<EOF" >> $GITHUB_OUTPUT
-          cat TASKS.md >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-          
-          echo "diff<<EOF" >> $GITHUB_OUTPUT
-          cat pr_diff.txt >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-          
       - name: Audit against Constitution with Gemini CLI
         id: audit
         uses: google-github-actions/run-gemini-cli@v0
         with:
           gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          extensions: files
           prompt: |
             You are the Enforcer for an autonomous development system.
             
             Your task is to review the code changes in this pull request against the repository's CONSTITUTION.md and ensure the intended task has been completed correctly as per TASKS.md.
             
-            --- CONSTITUTION.md ---
-            ${{ steps.context.outputs.constitution }}
-            -----------------------
-            
-            --- TASKS.md ---
-            ${{ steps.context.outputs.tasks }}
-            ----------------
-            
-            --- pr_diff.txt ---
-            ${{ steps.context.outputs.diff }}
-            -------------------
-            
             Please:
-            1. Read the provided CONSTITUTION.md content to understand the repository rules.
-            2. Read the provided TASKS.md content to identify the task(s) this PR is intended to complete.
-            3. Read the provided pr_diff.txt content to examine the changes.
+            1. Read "CONSTITUTION.md" to understand the repository rules.
+            2. Read "TASKS.md" to identify the task(s) this PR is intended to complete.
+            3. Read "pr_diff.txt" to examine the changes.
             4. Verify that:
                - The changes comply with ALL rules in CONSTITUTION.md.
                - The intended task(s) from TASKS.md have been implemented correctly and completely.
