@@ -4,6 +4,14 @@ import axios from "axios";
 
 jest.mock("axios");
 
+jest.mock("firebase-functions", () => ({
+  config: () => ({
+    firebase: {
+      storageBucket: "test-bucket",
+    },
+  }),
+}));
+
 describe("fetchWikipediaHTML", () => {
   afterEach(() => {
     jest.clearAllMocks();
