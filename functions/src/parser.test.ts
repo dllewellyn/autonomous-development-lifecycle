@@ -30,4 +30,11 @@ describe('parseTraitorsData', () => {
     expect(result).toHaveLength(2);
     expect(result.find(c => c.name === 'Invalid Contestant')).toBeUndefined();
   });
+
+  it('should return an empty array if the contestants table is not found', () => {
+    const html = fs.readFileSync(path.join(__dirname, 'fixtures', 'traitors-series-1-no-caption.html'), 'utf-8');
+    const result = parseTraitorsData(html);
+
+    expect(result).toHaveLength(0);
+  });
 });
