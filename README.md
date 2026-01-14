@@ -158,7 +158,7 @@ Watch your autonomous development loop in action:
 The workflows use reusable bash scripts located in `.github/scripts/`:
 
 - **State Management**: `read-state.sh`, `update-state.sh`, `restart-loop.sh`
-- **Context Preparation**: `prepare-context.sh`, `prepare-pr-context.sh`, `prepare-merge-context.sh`, `prepare-tasks-context.sh`
+- **Context Preparation**: `prepare-pr-context.sh`
 - **Workflow Logic**: `check-trigger.sh`, `parse-audit-result.sh`, `commit-changes.sh`
 
 See [.github/scripts/README.md](./.github/scripts/README.md) for details.

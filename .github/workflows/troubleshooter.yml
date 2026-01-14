@@ -68,19 +68,6 @@ jobs:
           } >> "$GITHUB_ENV"
           echo "SESSION_NAME=$SESSION_NAME" >> "$GITHUB_ENV"
           
-      - name: Prepare context
-        run: |
-          CONTEXT_MAP=$(cat CONTEXT_MAP.md 2>/dev/null || echo "File not found")
-          CONSTITUTION=$(cat CONSTITUTION.md 2>/dev/null || echo "File not found")
-          
-          echo "CONTEXT_MAP_CONTENT<<EOF" >> $GITHUB_ENV
-          echo "$CONTEXT_MAP" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
-          
-          echo "CONSTITUTION_CONTENT<<EOF" >> $GITHUB_ENV
-          echo "$CONSTITUTION" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
-          
       - name: Generate answer with Gemini CLI
         id: generate_answer
         uses: google-github-actions/run-gemini-cli@v0
@@ -95,13 +82,9 @@ jobs:
             
             ${{ env.BLOCKER_QUESTION }}
             
-            Context from repository:
-            
-            --- CONTEXT_MAP.md ---
-            ${{ env.CONTEXT_MAP_CONTENT }}
-            
-            --- CONSTITUTION.md ---
-            ${{ env.CONSTITUTION_CONTENT }}
+            Please read the following files for context:
+            - "CONTEXT_MAP.md"
+            - "CONSTITUTION.md"
             
             Provide a clear, actionable answer that Jules can use to proceed.
             

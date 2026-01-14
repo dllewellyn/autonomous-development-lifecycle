@@ -18,7 +18,7 @@ jobs:
           fetch-depth: 2 # Need previous commit for comparison
           
       - name: Prepare merge context
-        run: ./.github/scripts/prepare-merge-context.sh
+        run: git diff HEAD^ HEAD > merge_diff.txt
           
       - name: Extract lessons learned with Gemini CLI
         id: analyze
@@ -31,16 +31,11 @@ jobs:
             A PR has just been merged to main. Analyze the changes and extract lessons learned.
             
             Your task:
-            1. Review the merged changes
-            2. Identify patterns, challenges, or insights
-            3. Update AGENTS.md with new lessons learned
-            4. Format as a new entry with today's date
-            
-            Current AGENTS.md content:
-            ${{ env.AGENTS_CONTENT }}
-            
-            --- MERGED CHANGES ---
-            ${{ env.MERGE_DIFF_CONTENT }}
+            1. Read "AGENTS.md" to understand current lessons.
+            2. Read "merge_diff.txt" to see the merged changes.
+            3. Review the merged changes for patterns, challenges, or insights.
+            4. Update AGENTS.md with new lessons learned.
+            5. Format as a new entry with today's date.
             
             Output the complete updated AGENTS.md content.
             
@@ -51,9 +46,6 @@ jobs:
           printf '%s' "$AGENTS_SUMMARY" > AGENTS.md
           echo "AGENTS.md updated with new lessons"
           
-      - name: Prepare tasks context
-        run: ./.github/scripts/prepare-tasks-context.sh
-          
       - name: Update TASKS.md with Gemini CLI
         id: update_tasks
         uses: google-github-actions/run-gemini-cli@v0
@@ -63,17 +55,12 @@ jobs:
             You are the Strategist for an autonomous development system.
             
             A task has been completed and merged. Update TASKS.md by:
-            1. Finding the task that was just completed (based on the merge diff)
-            2. Marking it as complete
-            3. Work out, based on the goals and the completed task, if there are any new tasks that need to be added to the list
-            4. Work out what the best ordering of the tasks are, and re-order the tasks list
-            5. Return the updated TASKS.md content
-            
-            Current TASKS.md:
-            ${{ env.TASKS_CONTENT }}
-            
-            --- COMPLETED WORK ---
-            ${{ env.MERGE_DIFF_CONTENT }}
+            1. Reading "TASKS.md" to see the current backlog.
+            2. Reading "merge_diff.txt" to identify the completed task.
+            3. Marking the completed task as complete.
+            4. Working out if any new tasks need to be added based on the goals and the completed work.
+            5. Re-ordering the tasks list based on priority.
+            6. Return the updated TASKS.md content.
             
             Output the complete updated TASKS.md content.
             
