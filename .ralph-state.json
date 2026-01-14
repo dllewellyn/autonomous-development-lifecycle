@@ -1,7 +1,7 @@
 {
-  "status": "started",
+  "status": "stopped",
   "current_task_id": null,
-  "last_updated": "2026-01-14T15:08:13Z",
+  "last_updated": "2026-01-14T15:11:30Z",
   "iteration_count": 0,
   "max_iterations": 10
 }
