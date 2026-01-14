@@ -90,13 +90,18 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             // Approve the PR
-            await github.rest.pulls.createReview({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.issue.number,
-              event: 'APPROVE',
-              body: '✅ All constitution rules satisfied. Auto-approving.'
-            });
+            try {
+              await github.rest.pulls.createReview({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.issue.number,
+                event: 'APPROVE',
+                body: '✅ All constitution rules satisfied. Auto-approving.'
+              });
+            } catch (error) {
+              console.log('Failed to approve PR (likely due to permissions):', error.message);
+              // Continue to merge attempt
+            }
             
             // Merge the PR
             try {
