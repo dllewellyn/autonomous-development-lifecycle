@@ -16,7 +16,7 @@ This directory contains reusable bash scripts used by the Autonomous Development
 - **`prepare-tasks-context.sh`** - Prepares TASKS.md for updates
 
 ### Workflow Logic
-- **`check-trigger.sh`** - Determines if Planner should be triggered based on time
+- **`check-trigger.sh`** - Determines whether to trigger Planner or Troubleshooter based on Jules task status
 - **`parse-audit-result.sh`** - Parses Gemini audit results for PR compliance
 - **`commit-changes.sh`** - Reusable script for committing and pushing changes
 

@@ -10,8 +10,9 @@ jobs:
   heartbeat:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       actions: write
+      issues: write
     
     steps:
       - name: Checkout repository
@@ -21,13 +22,17 @@ jobs:
         id: read_state
         run: ./.github/scripts/read-state.sh
           
-      - name: Check if we should trigger Planner
+      - name: Check Jules task status
         if: steps.read_state.outputs.status == 'started'
         id: check_trigger
+        env:
+          JULES_API_TOKEN: ${{ secrets.JULES_API_KEY }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
         run: ./.github/scripts/check-trigger.sh
           
       - name: Trigger Planner workflow
-        if: steps.check_trigger.outputs.should_trigger == 'true'
+        if: steps.check_trigger.outputs.should_trigger_planner == 'true'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -39,8 +44,52 @@ jobs:
               ref: 'main'
             });
             console.log('Triggered Planner workflow');
+
+      - name: Trigger Troubleshooter workflow
+        if: steps.check_trigger.outputs.should_trigger_troubleshooter == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'troubleshooter.yml',
+              ref: 'main'
+            });
+            console.log('Triggered Troubleshooter workflow');
+
+      - name: Stop loop on blocked task
+        if: steps.check_trigger.outputs.should_stop == 'true'
+        run: |
+          jq --arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+             '.status = "stopped" | .last_updated = $timestamp' \
+             .ralph-state.json > .ralph-state.json.tmp
+          mv .ralph-state.json.tmp .ralph-state.json
+          echo "Loop stopped due to blocked task(s)"
+
+      - name: Notify human on blocked task
+        if: steps.check_trigger.outputs.should_stop == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const blockedCount = Number('${{ steps.check_trigger.outputs.blocked_count }}');
+            const countLabel = Number.isFinite(blockedCount) ? blockedCount : 'one or more';
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'Jules task blocked - manual intervention required',
+              body: `Heartbeat detected ${countLabel} blocked task(s). Review Jules for details and restart the loop when ready.`
+            });
+            console.log('Created issue for blocked task');
+
+      - name: Commit blocked state
+        if: steps.check_trigger.outputs.should_stop == 'true'
+        env:
+          COMMIT_MESSAGE: "chore: stop loop after blocked task"
+        run: ./.github/scripts/commit-changes.sh .ralph-state.json
             
       - name: Log heartbeat
         run: |
-          echo "Heartbeat completed. Status: ${{ steps.read_state.outputs.status }}"
-
+          echo "Heartbeat completed. Status: ${{ steps.read_state.outputs.status }} (Jules: ${{ steps.check_trigger.outputs.status }})"
