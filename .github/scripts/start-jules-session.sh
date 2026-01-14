@@ -65,10 +65,8 @@ if echo "$RESPONSE" | jq -e '.error' > /dev/null; then
   exit 1
 fi
 
-# Extract Session ID
-# The name field is typically "sessions/{UUID}" or "projects/.../sessions/{UUID}"
-# We assume the ID we need for subsequent calls (which construct URL .../sessions/{ID}) is just the UUID.
+# Extract Session ID (last path segment)
 FULL_NAME=$(echo "$RESPONSE" | jq -r '.name')
-SESSION_ID=$(echo "$FULL_NAME" | sed 's|.*/sessions/||')
+SESSION_ID=$(echo "$FULL_NAME" | awk -F/ '{print $NF}')
 
 echo "$SESSION_ID"
