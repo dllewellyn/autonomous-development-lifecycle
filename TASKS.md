@@ -1,6 +1,6 @@
 # Task Backlog
 
-- [ ] Create an HTTP-triggered Cloud Function for on-demand scraping.
+- [ ] Add a github workflow that will run tests, linting etc
 - [ ] Add monitoring and alerting for the scheduled Firebase Function.
 - [ ] Align ESLint configuration with Constitution (Strict rules + JSDoc enforcement).
 - [ ] Verify/Update Husky pre-commit hooks to run lint and tests before commit.
@@ -23,3 +23,4 @@
 - [x] Initialize Firebase project with TypeScript configuration (`firebase init functions`).
 - [x] Configure `tsconfig.json` and install scraping dependencies (e.g., `axios`, `cheerio`).
 - [x] Create a scheduled Firebase Function (Pub/Sub) to trigger every 24 hours.
+- [X] Create an HTTP-triggered Cloud Function for on-demand scraping.
