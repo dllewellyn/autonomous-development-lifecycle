@@ -52,7 +52,7 @@ jobs:
       - name: Parse audit result
         id: parse_result
         env:
-          AUDIT_RESPONSE: ${{ steps.audit.outputs.gemini_response }}
+          AUDIT_RESPONSE: ${{ steps.audit.outputs.summary }}
         run: ./.github/scripts/parse-audit-result.sh
           
       - name: Post violations
