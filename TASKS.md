@@ -6,6 +6,7 @@
 - [ ] Verify/Update Husky pre-commit hooks to run lint and tests before commit.
 
 --- COMPLETED WORK ---
+- [x] Standardize GitHub PAT secret to `GH_PAT` across all workflows.
 - [x] Update CI/CD pipeline to strictly enforce 90% test coverage threshold.
 - [x] Integrate Firebase Storage to save the generated CSV file.
 - [x] Implement CSV generation logic using the parsed data.

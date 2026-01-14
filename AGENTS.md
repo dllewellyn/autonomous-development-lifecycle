@@ -6,6 +6,14 @@
 
 ## Wednesday, January 14, 2026
 
+The latest changes standardize the naming of secrets within the CI/CD pipeline.
+
+### 1. Standardize Environment Variable Naming for Clarity and Consistency
+- **Observation:** The secret used for authenticating Git pushes in CI/CD workflows was renamed from `GITHUB_PAT` to `GH_PAT` across all relevant scripts (`commit-changes.sh`) and workflow files (`heartbeat.yml`, `planner.yml`, `strategist.yml`).
+- **Lesson:** Adopting a consistent and clear naming convention for environment variables and secrets across the entire CI/CD pipeline is crucial for maintainability. Standardization reduces ambiguity, simplifies debugging, and makes it easier for developers to understand the flow of configuration and secrets throughout the system.
+
+## Wednesday, January 14, 2026
+
 The latest changes focus on improving agent protocol and enforcing development standards.
 
 ### 1. Maintain Clean Data in Project Documents
