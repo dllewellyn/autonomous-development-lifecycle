@@ -49,12 +49,12 @@ export const scheduledScraper = functions.pubsub
  * @param {functions.https.Request} request The HTTP request object.
  * @param {functions.Response} response The HTTP response object.
  */
-export const scrapeTraitorsOnDemand = onRequest(async (request, response) => {
+export const api = onRequest(async (request, response) => {
   try {
     await scraperHandler();
-    response.status(200).send("Scraping complete.");
+    response.status(200).json({status: "success", message: "Scraping completed."});
   } catch (error) {
     console.error("Error during on-demand scraping:", error);
-    response.status(500).send("Scraping failed.");
+    response.status(500).json({status: "error", message: "An error occurred during scraping."});
   }
 });

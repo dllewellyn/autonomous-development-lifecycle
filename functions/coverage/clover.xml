@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1768408723818" clover="3.2.0">
-  <project timestamp="1768408723818" name="All files">
+<coverage generated="1768411797538" clover="3.2.0">
+  <project timestamp="1768411797538" name="All files">
     <metrics statements="81" coveredstatements="81" conditionals="6" coveredconditionals="6" methods="10" coveredmethods="10" elements="97" coveredelements="97" complexity="0" loc="81" ncloc="81" packages="1" files="6" classes="6"/>
     <file name="config.ts" path="/app/functions/src/config.ts">
       <metrics statements="3" coveredstatements="3" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
@@ -25,27 +25,27 @@
       <line num="6" count="1" type="stmt"/>
       <line num="7" count="1" type="stmt"/>
       <line num="9" count="1" type="stmt"/>
-      <line num="11" count="1" type="stmt"/>
-      <line num="12" count="4" type="stmt"/>
-      <line num="14" count="4" type="stmt"/>
-      <line num="15" count="4" type="stmt"/>
-      <line num="16" count="2" type="stmt"/>
-      <line num="18" count="2" type="stmt"/>
-      <line num="19" count="2" type="stmt"/>
+      <line num="16" count="1" type="stmt"/>
+      <line num="17" count="4" type="stmt"/>
+      <line num="19" count="4" type="stmt"/>
+      <line num="20" count="4" type="stmt"/>
       <line num="21" count="2" type="stmt"/>
-      <line num="22" count="2" type="stmt"/>
+      <line num="23" count="2" type="stmt"/>
       <line num="24" count="2" type="stmt"/>
-      <line num="25" count="2" type="stmt"/>
+      <line num="26" count="2" type="stmt"/>
       <line num="27" count="2" type="stmt"/>
-      <line num="28" count="2" type="stmt"/>
-      <line num="32" count="1" type="stmt"/>
-      <line num="34" count="1" type="stmt"/>
-      <line num="38" count="1" type="stmt"/>
-      <line num="39" count="2" type="stmt"/>
-      <line num="40" count="2" type="stmt"/>
-      <line num="41" count="1" type="stmt"/>
-      <line num="43" count="1" type="stmt"/>
-      <line num="44" count="1" type="stmt"/>
+      <line num="29" count="2" type="stmt"/>
+      <line num="30" count="2" type="stmt"/>
+      <line num="32" count="2" type="stmt"/>
+      <line num="33" count="2" type="stmt"/>
+      <line num="37" count="1" type="stmt"/>
+      <line num="42" count="1" type="stmt"/>
+      <line num="52" count="1" type="stmt"/>
+      <line num="53" count="2" type="stmt"/>
+      <line num="54" count="2" type="stmt"/>
+      <line num="55" count="1" type="stmt"/>
+      <line num="57" count="1" type="stmt"/>
+      <line num="58" count="1" type="stmt"/>
     </file>
     <file name="parser.ts" path="/app/functions/src/parser.ts">
       <metrics statements="28" coveredstatements="28" conditionals="6" coveredconditionals="6" methods="5" coveredmethods="5"/>
