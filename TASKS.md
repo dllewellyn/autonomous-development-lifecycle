@@ -1,12 +1,12 @@
 # Task Backlog
 
+- [ ] Add monitoring and alerting for the scheduled Firebase Function.
 - [ ] Align ESLint configuration with Constitution (Strict rules + JSDoc enforcement).
 - [ ] Verify/Update Husky pre-commit hooks to run lint and tests before commit.
 - [ ] Update CI/CD pipeline to strictly enforce 90% test coverage threshold.
-- [ ] Integrate Firebase Storage to save the generated CSV file.
-- [ ] Add monitoring and alerting for the scheduled Firebase Function.
 
 --- COMPLETED WORK ---
+- [x] Integrate Firebase Storage to save the generated CSV file.
 - [x] Implement CSV generation logic using the parsed data.
 - [x] Develop a parser to extract episode/series statistics from the HTML tables.
 - [x] Add unit tests for the parser logic.

@@ -8,6 +8,30 @@ I have analyzed the merged changes and updated `AGENTS.md` with the lessons lear
 
 ## Wednesday, January 14, 2026
 
+The latest changes introduce the capability to persist the scraped data into cloud storage, providing valuable lessons in building robust data pipelines and managing infrastructure.
+
+### 1. Persist Data for Future Use
+- **Observation:** The generated CSV data is now uploaded to Firebase Cloud Storage.
+- **Lesson:** A data processing pipeline is incomplete without a persistence layer. Storing the output (e.g., in a cloud storage bucket) makes the data accessible for other systems, enables historical analysis, and decouples data generation from its consumption.
+
+### 2. Manage Infrastructure and Security as Code
+- **Observation:** A `storage.rules` file was added to the repository to define security rules for the storage bucket.
+- **Lesson:** Infrastructure configurations, especially security rules, should be treated as code. This practice ensures that the environment is version-controlled, reproducible, and that security policies are explicit and auditable.
+
+### 3. Refactor Logic for Better Reusability and Testability
+- **Observation:** The core scraping and processing logic in `index.ts` was refactored into a separate `scraperHandler` function, separating it from the scheduling trigger.
+- **Lesson:** Decoupling core business logic from its trigger mechanism (e.g., an HTTP request, a scheduled task) improves code quality. It makes the logic more reusable and easier to test in isolation.
+
+### 4. Expand Tests to Cover End-to-End Flows
+- **Observation:** The integration tests were updated to mock and verify the new storage upload step, covering the entire workflow from fetching data to storing the final CSV.
+- **Lesson:** As new stages are added to a data pipeline, the corresponding tests must be expanded to cover the complete end-to-end process. This ensures all components integrate correctly and helps maintain system reliability.
+
+### 5. Centralize and Externalize Configuration
+- **Observation:** Environment-specific values like the storage bucket name are now retrieved from Firebase's runtime configuration instead of being hardcoded.
+- **Lesson:** Externalizing configuration is a best practice for building flexible and portable applications. It allows the same codebase to run in different environments (development, production) without modification, simply by changing the configuration.
+
+## Wednesday, January 14, 2026
+
 The latest merge introduces functionality to serialize scraped data into CSV format. This highlights several important software engineering practices.
 
 ### 1. Implement Modular and Testable Code
