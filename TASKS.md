@@ -7,7 +7,8 @@
 - [ ] Integrate Firebase Storage to save the generated CSV file.
 - [ ] Add monitoring and alerting for the scheduled Firebase Function.
 
---- COMP-LETED WORK ---
+--- COMPLETED WORK ---
+- [x] Integrate session management and violation feedback with the Jules API.
 - [x] Create a CI/CD pipeline that runs build, tests, lint, husky etc to ensure pull-requests are up-to-scratch
 - [x] Implement the scraper logic to fetch Wikipedia HTML for UK Traitors series.
 - [x] Audit CI/CD workflows for secret usage consistency.
