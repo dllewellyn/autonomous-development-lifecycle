@@ -1,9 +1,17 @@
 import {uploadCsvToStorage} from "./storage";
 import * as admin from "firebase-admin";
 
+jest.mock("firebase-functions", () => ({
+  config: () => ({
+    firebase: {
+      storageBucket: "test-bucket",
+    },
+  }),
+}));
+
 const mockSave = jest.fn();
 const mockFile = jest.fn(() => ({save: mockSave}));
-const mockBucket = jest.fn(() => ({file: mockFile, name: "test-bucket"}));
+const mockBucket = jest.fn(() => ({file: mockFile}));
 
 jest.mock("firebase-admin", () => ({
   storage: jest.fn(() => ({
@@ -22,7 +30,7 @@ describe("uploadCsvToStorage", () => {
 
     await uploadCsvToStorage(csvContent, fileName);
 
-    expect(admin.storage().bucket).toHaveBeenCalledWith();
+    expect(admin.storage().bucket).toHaveBeenCalledWith("test-bucket");
     expect(mockFile).toHaveBeenCalledWith(fileName);
     expect(mockSave).toHaveBeenCalledWith(csvContent);
   });
