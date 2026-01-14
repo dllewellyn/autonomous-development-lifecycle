@@ -8,6 +8,9 @@ import {generateCsv} from "./csv";
 
 admin.initializeApp();
 
+// Export ADL functions
+export {heartbeat, planner, troubleshooter, enforcer, strategist} from "./adl/services";
+
 /**
  * Handles the scraping of The Traitors Wikipedia page, parsing the data,
  * and uploading it as a CSV to Firebase Storage.
