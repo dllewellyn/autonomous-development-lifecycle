@@ -21,7 +21,7 @@ jobs:
           
       - name: Audit against Constitution with Gemini CLI
         id: audit
-        uses: google-github-actions/run-gemini-cli@v1
+        uses: google-github-actions/run-gemini-cli@v0
         with:
           gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
           prompt: |
@@ -48,7 +48,7 @@ jobs:
             
       - name: Parse audit result
         id: parse_result
-        run: ./.github/scripts/parse-audit-result.sh "${{ steps.audit.outputs.response }}"
+        run: ./.github/scripts/parse-audit-result.sh "${{ steps.audit.outputs.summary }}"
           
       - name: Post violations
         if: steps.parse_result.outputs.compliant == 'false'
