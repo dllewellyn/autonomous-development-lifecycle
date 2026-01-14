@@ -1,0 +1,7 @@
+#-*- sh-mode: gitignore -*-
+
+node_modules
+.DS_Store
+
+# Compiled code
+lib
