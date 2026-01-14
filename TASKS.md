@@ -1,13 +1,13 @@
 # Task Backlog
 
-- [ ] Develop a parser to extract episode/series statistics from the HTML tables.
-- [ ] Add unit tests for the parser logic.
-- [ ] Add schema validation for parsed data to detect page layout changes.
 - [ ] Implement CSV generation logic using the parsed data.
 - [ ] Integrate Firebase Storage to save the generated CSV file.
 - [ ] Add monitoring and alerting for the scheduled Firebase Function.
 
 --- COMPLETED WORK ---
+- [x] Develop a parser to extract episode/series statistics from the HTML tables.
+- [x] Add unit tests for the parser logic.
+- [x] Add schema validation for parsed data to detect page layout changes.
 - [x] Integrate session management and violation feedback with the Jules API.
 - [x] Create a CI/CD pipeline that runs build, tests, lint, husky etc to ensure pull-requests are up-to-scratch
 - [x] Implement the scraper logic to fetch Wikipedia HTML for UK Traitors series.
