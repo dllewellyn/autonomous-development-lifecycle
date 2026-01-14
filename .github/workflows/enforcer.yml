@@ -22,7 +22,7 @@ jobs:
         env:
           BASE_REF: ${{ github.base_ref }}
         run: ./.github/scripts/prepare-pr-context.sh
-          
+
       - name: Audit against Constitution with Gemini CLI
         id: audit
         uses: google-github-actions/run-gemini-cli@v0
@@ -34,9 +34,9 @@ jobs:
             Your task is to review the code changes in this pull request against the repository's CONSTITUTION.md and ensure the intended task has been completed correctly as per TASKS.md.
             
             Please:
-            1. Read CONSTITUTION.md to understand the repository rules.
-            2. Read TASKS.md to identify the task(s) this PR is intended to complete.
-            3. Read pr_diff.txt to examine the changes.
+            1. Read "CONSTITUTION.md" to understand the repository rules.
+            2. Read "TASKS.md" to identify the task(s) this PR is intended to complete.
+            3. Read "pr_diff.txt" to examine the changes.
             4. Verify that:
                - The changes comply with ALL rules in CONSTITUTION.md.
                - The intended task(s) from TASKS.md have been implemented correctly and completely.
@@ -51,7 +51,9 @@ jobs:
             
       - name: Parse audit result
         id: parse_result
-        run: ./.github/scripts/parse-audit-result.sh "${{ steps.audit.outputs.summary }}"
+        env:
+          AUDIT_RESPONSE: ${{ steps.audit.outputs.summary }}
+        run: ./.github/scripts/parse-audit-result.sh
           
       - name: Post violations
         if: steps.parse_result.outputs.compliant == 'false'
