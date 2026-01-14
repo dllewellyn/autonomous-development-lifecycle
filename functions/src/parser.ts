@@ -11,10 +11,17 @@ export const ContestantSchema = z.object({
 
 export type Contestant = z.infer<typeof ContestantSchema>;
 
+interface RawContestant {
+  name: string;
+  age: number | null;
+  occupation: string;
+  status: string;
+}
+
 
 export const parseTraitorsData = (html: string): Contestant[] => {
   const $ = cheerio.load(html);
-  const rawContestants: any[] = [];
+  const rawContestants: RawContestant[] = [];
 
   let contestantsTable: cheerio.Cheerio | undefined;
 
@@ -33,7 +40,7 @@ export const parseTraitorsData = (html: string): Contestant[] => {
 
       if (columns.length >= 6) {
         const name = $(columns[0]).text().trim();
-        const age = parseInt($(columns[1]).text().trim(), 10);
+        const age = parseInt($(columns[1]).text().trim(), 10) || null;
         const occupation = $(columns[3]).text().trim();
         const status = $(columns[5]).text().trim().replace(/\[\d+\]/g, '');
 
