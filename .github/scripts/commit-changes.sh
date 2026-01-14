@@ -5,8 +5,8 @@ set -e
 git config user.name "Ralph Bot"
 git config user.email "ralph@bot.local"
 
-if [ -z "${GITHUB_PAT:-}" ]; then
-  echo "GITHUB_PAT is required for pushing commits"
+if [ -z "${GH_PAT:-}" ]; then
+  echo "GH_PAT is required for pushing commits"
   exit 1
 fi
 
@@ -15,7 +15,7 @@ if [ -z "${GITHUB_REPOSITORY:-}" ]; then
   exit 1
 fi
 
-git remote set-url origin "https://x-access-token:${GITHUB_PAT}@github.com/${GITHUB_REPOSITORY}.git"
+git remote set-url origin "https://x-access-token:${GH_PAT}@github.com/${GITHUB_REPOSITORY}.git"
 
 # Add all specified files (passed as arguments)
 git add "$@"

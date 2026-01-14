@@ -61,5 +61,5 @@ jobs:
       - name: Commit changes
         env:
           COMMIT_MESSAGE: "chore: updated state after creating Jules task"
-          GITHUB_PAT: ${{ secrets.GITHUB_PAT }}
+          GH_PAT: ${{ secrets.GH_PAT }}
         run: ./.github/scripts/commit-changes.sh .ralph-state.json
