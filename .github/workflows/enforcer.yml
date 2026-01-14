@@ -19,7 +19,7 @@ jobs:
         with:
           fetch-depth: 0 # Need full history for diff
 
-      - name: Check for failed workflows
+      - name: Wait for and check other workflows
         uses: actions/github-script@v7
         env:
           JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
@@ -30,19 +30,49 @@ jobs:
             
             // Get the head SHA of the PR
             const headSha = context.payload.pull_request.head.sha;
-            console.log(`Checking for failed workflows on commit: ${headSha}`);
+            console.log(`Checking for other workflows on commit: ${headSha}`);
 
-            // List workflow runs for the commit
-            const { data: runs } = await github.rest.actions.listWorkflowRunsForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              head_sha: headSha,
-              status: 'completed' // Only look at completed runs
-            });
+            const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+            const TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes timeout
+            const POLL_INTERVAL_MS = 30000;    // 30 seconds
+            const startTime = Date.now();
 
+            let runs = [];
+            let pendingRuns = [];
             const currentRunId = context.runId;
-            const failedRuns = runs.workflow_runs.filter(run => 
-              run.conclusion === 'failure' && run.id !== currentRunId
+
+            while (Date.now() - startTime < TIMEOUT_MS) {
+              // List workflow runs for the commit
+              const { data: listData } = await github.rest.actions.listWorkflowRunsForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                head_sha: headSha
+              });
+              
+              runs = listData.workflow_runs.filter(run => run.id !== currentRunId);
+              
+              pendingRuns = runs.filter(run => 
+                ['queued', 'in_progress', 'waiting'].includes(run.status)
+              );
+
+              if (pendingRuns.length === 0) {
+                console.log('All other workflows have completed.');
+                break;
+              }
+
+              const pendingNames = pendingRuns.map(r => r.name).join(', ');
+              console.log(`Waiting for ${pendingRuns.length} workflow(s) to complete: ${pendingNames}`);
+              await sleep(POLL_INTERVAL_MS);
+            }
+
+            if (pendingRuns.length > 0) {
+              core.setFailed(`Timeout waiting for workflows: ${pendingRuns.map(r => r.name).join(', ')}`);
+              return;
+            }
+
+            // Check for failures among the completed runs
+            const failedRuns = runs.filter(run => 
+              ['failure', 'cancelled', 'timed_out'].includes(run.conclusion)
             );
 
             if (failedRuns.length > 0) {
@@ -93,7 +123,7 @@ jobs:
               // Fail the Enforcer job
               core.setFailed('Other workflows have failed. Blocking merge.');
             } else {
-              console.log('No failed workflows found.');
+              console.log('All other workflows passed.');
             }
           
       - name: Prepare PR context
