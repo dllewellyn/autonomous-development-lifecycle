@@ -39,15 +39,15 @@ PAYLOAD=$(jq -n \
   --arg prompt "$PROMPT" \
   --arg source "$SOURCE" \
   --arg branch "$GITHUB_REF_NAME" \
-  '{ \
-    prompt: $prompt, \
-    sourceContext: { \
-      source: $source, \
-      githubRepoContext: { \
-        startingBranch: $branch \
-      } \
-    }, \
-    automationMode: "AUTO_CREATE_PR" \
+  '{
+    prompt: $prompt,
+    sourceContext: {
+      source: $source,
+      githubRepoContext: {
+        startingBranch: $branch
+      }
+    },
+    automationMode: "AUTO_CREATE_PR"
   }')
 
 echo "Creating Jules session for $SOURCE on branch $GITHUB_REF_NAME..." >&2
