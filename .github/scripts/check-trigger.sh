@@ -2,33 +2,30 @@
 set -euo pipefail
 
 : "${GITHUB_OUTPUT:?}"
-: "${JULES_API_TOKEN:?}"
-: "${REPO_OWNER:?}"
-: "${REPO_NAME:?}"
+: "${JULES_API_KEY:?}"
 
-API_URL="https://api.jules.ai/repos/${REPO_OWNER}/${REPO_NAME}/tasks"
-RESPONSE=$(curl -fsS -H "Authorization: Bearer $JULES_API_TOKEN" "$API_URL")
+BASE_URL="https://jules.googleapis.com/v1alpha"
+RESPONSE=$(curl -fsS -H "X-Goog-Api-Key: $JULES_API_KEY" "$BASE_URL/sessions?pageSize=100")
 
-TASKS=$(echo "$RESPONSE" | jq -e -c '
-  if type == "array" then .
-  elif type == "object" and has("tasks") and (.tasks | type == "array") then .tasks
-  else error("Unexpected tasks response shape") end
+SESSIONS=$(echo "$RESPONSE" | jq -e -c '
+  if type == "object" and has("sessions") and (.sessions | type == "array") then .sessions
+  else error("Unexpected sessions response shape") end
 ')
 
-if ! echo "$TASKS" | jq -e 'all(.[]; has("status"))' >/dev/null; then
-  echo "Error: tasks response missing status fields" >&2
+if ! echo "$SESSIONS" | jq -e 'all(.[]; has("state"))' >/dev/null; then
+  echo "Error: sessions response missing state fields" >&2
   exit 1
 fi
 
-STATUS=$(echo "$TASKS" | jq -r '
-  map(.status) as $statuses |
-  if any($statuses[]; . == "blocked") then "blocked"
-  elif any($statuses[]; . == "waiting_for_input") then "waiting_for_input"
-  elif any($statuses[]; . == "in_progress") then "in_progress"
+STATUS=$(echo "$SESSIONS" | jq -r '
+  map(.state) as $states |
+  if any($states[]; . == "FAILED" or . == "PAUSED" or . == "AWAITING_PLAN_APPROVAL" or . == "STATE_UNSPECIFIED") then "blocked"
+  elif any($states[]; . == "AWAITING_USER_FEEDBACK") then "waiting_for_input"
+  elif any($states[]; . == "QUEUED" or . == "PLANNING" or . == "IN_PROGRESS") then "in_progress"
   else "none_active" end
 ')
 
-BLOCKED_COUNT=$(echo "$TASKS" | jq '[.[] | select(.status == "blocked")] | length')
+BLOCKED_COUNT=$(echo "$SESSIONS" | jq '[.[] | select(.state == "FAILED" or .state == "PAUSED" or .state == "AWAITING_PLAN_APPROVAL" or .state == "STATE_UNSPECIFIED")] | length')
 
 case "$STATUS" in
   blocked)
