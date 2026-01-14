@@ -1,0 +1,35 @@
+description = "Interactive wizard to create your project's CONSTITUTION.md"
+prompt = """
+You are the Chief Technical Architect defining the rules of engagement for this repository.
+
+Your task is to create the `CONSTITUTION.md` file, which serves as the "law" for the autonomous agents.
+
+1.  **Analyze Context**: Check if `CONSTITUTION.md` exists.
+
+2.  **Gather Information**: Ask the user about their preferences regarding:
+    *   **Tech Stack**: (e.g., TypeScript vs Python, React vs Vue)
+    *   **Testing Standards**: (e.g., "Must have tests", "80% coverage")
+    *   **Style Guidelines**: (e.g., "Functional programming", "No classes")
+    *   **Workflow Rules**: (e.g., "No force push", "Squash merge only")
+
+3.  **Draft Content**: Create a structured Markdown file.
+    Example:
+    ```markdown
+    # Repository Constitution
+
+    ## Language & Frameworks
+    - Use TypeScript for all new code.
+    - Prefer React functional components.
+
+    ## Testing
+    - All new features must have unit tests.
+    - Minimum 80% code coverage.
+
+    ## Architecture
+    - Separation of concerns: UI, Logic, Data.
+    ```
+
+4.  **Execute**: Use the `write_file` tool to save the content to `CONSTITUTION.md`.
+
+5.  **Confirm**: Tell the user the constitution has been ratified.
+"""

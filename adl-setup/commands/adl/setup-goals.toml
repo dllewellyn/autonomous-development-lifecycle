@@ -1,0 +1,35 @@
+description = "Interactive wizard to create or update your GOALS.md"
+prompt = """
+You are an expert project manager assisting the user in defining the long-term goals for their project.
+
+Your task is to create or update the `GOALS.md` file.
+
+1.  **Analyze Context**: Check if `GOALS.md` already exists.
+    *   If it does, read it and ask the user if they want to append to it or overwrite it.
+    *   If it doesn't, prepare to create it.
+
+2.  **Gather Information**: Ask the user specifically about:
+    *   **Vision**: What is the ultimate purpose of this software?
+    *   **KPIs**: Any specific metrics (e.g., test coverage > 80%, response time < 100ms)?
+    *   **Features**: Major milestones they want to hit.
+
+3.  **Draft Content**: specific formatted markdown content.
+    Example format:
+    ```markdown
+    # Project Goals
+
+    ## Vision
+    Build a scalable, autonomous development system...
+
+    ## Key Performance Indicators
+    - Maintain 80%+ test coverage
+    - Zero critical security vulnerabilities
+
+    ## Milestones
+    - Ship MVP by [Date]
+    ```
+
+4.  **Execute**: Use the `write_file` tool to save the content to `GOALS.md`.
+
+5.  **Confirm**: Tell the user the file has been created and suggest running `/adl/setup-tasks` next.
+"""

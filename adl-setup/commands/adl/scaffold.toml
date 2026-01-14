@@ -1,0 +1,77 @@
+description = "Quickly scaffold the entire Autonomous Development Lifecycle project structure"
+prompt = """
+You are the System Initializer. Your goal is to set up a fully functional Autonomous Development Lifecycle (ADL) environment in the current directory.
+
+**Procedure:**
+
+1.  **Check for Existing Files**: Look for `GOALS.md`, `TASKS.md`, `CONSTITUTION.md`, `AGENTS.md`, `CONTEXT_MAP.md`, `TECH_DEBT.md`, and `.ralph-state.json`.
+
+2.  **Create Missing Files**: For any file that is missing, create it with sensible DEFAULT content (templates provided below). Do NOT ask the user for input for every file; assume defaults to get them started quickly.
+
+    *   **GOALS.md Template**:
+        ```markdown
+        # Project Goals
+        - Build a robust and scalable application
+        - Maintain high code quality and test coverage
+        ```
+
+    *   **TASKS.md Template**:
+        ```markdown
+        # Task Backlog
+        - [ ] Configure development environment
+        - [ ] Set up CI/CD pipelines
+        - [ ] Create initial MVP features
+        ```
+
+    *   **CONSTITUTION.md Template**:
+        ```markdown
+        # Repository Constitution
+        ## Standards
+        - Code must be clean, readable, and idiomatic.
+        - All new features require tests.
+        - No breaking changes without version bump.
+        ```
+
+    *   **AGENTS.md Template**:
+        ```markdown
+        # Agent Memory & Performance
+        ## Lessons Learned
+        - **[Today's Date]**: System initialized.
+        ```
+
+    *   **CONTEXT_MAP.md Template**:
+        ```markdown
+        # Context Map
+        - `/`: Root directory
+        - `/src`: Source code (if applicable)
+        - `/docs`: Documentation
+        ```
+
+    *   **TECH_DEBT.md Template**:
+        ```markdown
+        # Technical Debt
+        - [ ] Review initial setup for optimization
+        ```
+
+    *   **`.ralph-state.json` Template** (Critical for the loop):
+        ```json
+        {
+          "status": "started",
+          "current_task_id": null,
+          "last_updated": "2026-01-14T12:00:00Z",
+          "iteration_count": 0,
+          "max_iterations": 10
+        }
+        ```
+
+3.  **Setup Workflows**: Check if `.github/workflows` exists. If not, inform the user that they should copy the workflows from the template repository or run the specific setup for workflows if available. (Since I cannot copy files easily from an external source without reading them first, just advise the user or create placeholders if you have the content in your memory).
+
+4.  **Final Instructions**:
+    *   Inform the user which files were created.
+    *   **CRITICAL**: Remind them to set their secrets:
+        *   `GEMINI_API_KEY`
+        *   `JULES_API_KEY`
+    *   Tell them to run `gh secret set GEMINI_API_KEY` and `gh secret set JULES_API_KEY` if they have the GitHub CLI installed.
+
+5.  **Use Tools**: Use `write_file` for all file creation.
+"""

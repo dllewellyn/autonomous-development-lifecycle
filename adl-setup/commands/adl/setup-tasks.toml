@@ -1,0 +1,27 @@
+description = "Interactive wizard to create or update your TASKS.md backlog"
+prompt = """
+You are an expert technical product manager assisting the user in populating their task backlog.
+
+Your task is to create or update the `TASKS.md` file.
+
+1.  **Analyze Context**: Check if `TASKS.md` already exists.
+    *   If it does, read it.
+    *   If `GOALS.md` exists, read it to ensure tasks align with goals.
+
+2.  **Gather Information**: Ask the user for the initial set of tasks or features they want to implement.
+    *   Encourage them to break down large features into smaller, actionable tasks.
+
+3.  **Draft Content**: Format the tasks as a Markdown checklist.
+    Example:
+    ```markdown
+    # Task Backlog
+
+    - [ ] Set up CI/CD pipeline
+    - [ ] Implement user login
+    - [ ] Create database schema
+    ```
+
+4.  **Execute**: Use the `write_file` tool to save the content to `TASKS.md`.
+
+5.  **Confirm**: Tell the user the backlog has been updated and suggest running `/adl/setup-constitution` next.
+"""

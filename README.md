@@ -17,18 +17,33 @@ This system implements a fully autonomous development loop where:
 - GitHub repository with Actions enabled
 - [Jules AI](https://jules.ai) account and API access
 - [Google Gemini API](https://ai.google.dev/) key
+- [Gemini CLI](https://github.com/google-github-actions/run-gemini-cli) installed locally
 
-### 1. Configure GitHub Secrets
+### 1. Automated Setup (Recommended)
 
-Add the following secrets to your repository (`Settings` → `Secrets and variables` → `Actions`):
+The easiest way to set up ADL is using the built-in Gemini extension. In your terminal, run:
+
+```bash
+/setup-adl
+```
+
+This command will:
+- **Initialize Files**: Create `GOALS.md`, `TASKS.md`, `CONSTITUTION.md`, `.ralph-state.json`, etc., with default templates.
+- **Configure Secrets**: Guide you through uploading `GEMINI_API_KEY` and `JULES_API_KEY` to GitHub Actions using the GitHub CLI (`gh`).
+
+### 2. Manual Setup
+
+If you prefer to set up manually, follow these steps:
+
+#### A. Configure GitHub Secrets
+Add these to `Settings` → `Secrets and variables` → `Actions`:
 
 | Secret Name | Description | How to Get It |
 |-------------|-------------|---------------|
 | `GEMINI_API_KEY` | Gemini API key for AI planning and review | [Get API Key](https://ai.google.dev/) |
 | `JULES_API_KEY` | Jules AI authentication key | [Get from jules.google.com](https://jules.google.com) |
 
-### 2. Create Required Files
-
+#### B. Create Required Files
 Create these files in your repository root:
 
 #### `GOALS.md` - Your Long-Term Vision
