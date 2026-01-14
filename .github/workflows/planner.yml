@@ -53,7 +53,7 @@ jobs:
             
           
       - name: Create Jules task with generated plan
-        uses: google-labs-code/jules-invoke@v1
+        uses: google-labs-code/jules-invoke@v1.0.0
         with:
           jules_api_key: ${{ secrets.JULES_API_KEY }}
           prompt: ${{ steps.analyze.outputs.summary }}
