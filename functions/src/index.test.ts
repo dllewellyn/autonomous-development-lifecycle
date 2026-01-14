@@ -4,13 +4,8 @@ import {parseTraitorsData} from "./parser";
 import {generateCsv} from "./csv";
 import {uploadCsvToStorage} from "./storage";
 
-// Mock firebase-functions used by config.ts
+// Mock firebase-functions scheduler for module initialization
 jest.mock("firebase-functions", () => ({
-  config: () => ({
-    firebase: {
-      storageBucket: "test-bucket",
-    },
-  }),
   pubsub: {
     schedule: () => ({
       onRun: () => {},
