@@ -1,8 +1,5 @@
-I have updated the `TASKS.md` file as requested. Here is the updated content:
-
 # Task Backlog
 
-- [ ] Create a CI/CD pipeline that runs build, tests, lint, husky etc to ensure pull-requests are up-to-scratch
 - [ ] Develop a parser to extract episode/series statistics from the HTML tables.
 - [ ] Add unit tests for the parser logic.
 - [ ] Add schema validation for parsed data to detect page layout changes.
@@ -10,7 +7,8 @@ I have updated the `TASKS.md` file as requested. Here is the updated content:
 - [ ] Integrate Firebase Storage to save the generated CSV file.
 - [ ] Add monitoring and alerting for the scheduled Firebase Function.
 
---- COMPLETED WORK ---
+--- COMP-LETED WORK ---
+- [x] Create a CI/CD pipeline that runs build, tests, lint, husky etc to ensure pull-requests are up-to-scratch
 - [x] Implement the scraper logic to fetch Wikipedia HTML for UK Traitors series.
 - [x] Audit CI/CD workflows for secret usage consistency.
 - [x] Refactor CI/CD workflows for simplicity and maintainability.
