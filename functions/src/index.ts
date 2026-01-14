@@ -2,6 +2,7 @@ import * as functions from "firebase-functions";
 import {fetchWikipediaHTML} from "./scraper";
 import {parseTraitorsData} from "./parser";
 import {WIKIPEDIA_URL} from "./config";
+import {generateCsv} from "./csv";
 
 export const scheduledScraper = functions.pubsub
     .schedule("every 24 hours")
@@ -14,6 +15,9 @@ export const scheduledScraper = functions.pubsub
 
         const contestants = parseTraitorsData(html);
         console.log("Parsed contestants:", contestants);
+
+        const csv = generateCsv(contestants);
+        console.log("Generated CSV:", csv);
       } catch (error) {
         console.error(`Failed to fetch and parse HTML from ${WIKIPEDIA_URL}.`, error);
       }
