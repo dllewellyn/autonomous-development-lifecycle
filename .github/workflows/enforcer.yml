@@ -126,6 +126,34 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            // Check if PR is a draft and mark as ready if needed
+            try {
+              const { data: pr } = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.issue.number
+              });
+
+              if (pr.draft) {
+                console.log('PR is in draft status. Marking as ready for review...');
+                await github.graphql(`
+                  mutation($pullRequestId: ID!) {
+                    markPullRequestReadyForReview(input: {pullRequestId: $pullRequestId}) {
+                      pullRequest {
+                        id
+                        isDraft
+                      }
+                    }
+                  }
+                `, {
+                  pullRequestId: pr.node_id
+                });
+                console.log('PR marked as ready for review.');
+              }
+            } catch (error) {
+               console.log('Failed to check/update draft status:', error.message);
+            }
+
             // Approve the PR
             try {
               await github.rest.pulls.createReview({

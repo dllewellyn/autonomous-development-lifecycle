@@ -32,4 +32,6 @@ Your task is to create the `CONSTITUTION.md` file, which serves as the "law" for
 4.  **Execute**: Use the `write_file` tool to save the content to `CONSTITUTION.md`.
 
 5.  **Confirm**: Tell the user the constitution has been ratified.
+
+6.  **Tasks**: At this point, it is likely that the tasks file has already been created, but prompt the user to ask if they would like to update the tasks to add guardrails to the project; like linters, test workflows etc
 """
