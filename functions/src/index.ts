@@ -8,6 +8,11 @@ import {generateCsv} from "./csv";
 
 admin.initializeApp();
 
+/**
+ * Handles the scraping of The Traitors Wikipedia page, parsing the data,
+ * and uploading it as a CSV to Firebase Storage.
+ * @throws {Error} Throws an error if any step of the process fails.
+ */
 export const scraperHandler = async (): Promise<void> => {
   console.log("Scraper function triggered.");
 
@@ -31,10 +36,19 @@ export const scraperHandler = async (): Promise<void> => {
 
 import {onRequest} from "firebase-functions/v2/https";
 
+/**
+ * A scheduled Firebase Function that runs the scraper every 24 hours.
+ */
 export const scheduledScraper = functions.pubsub
     .schedule("every 24 hours")
     .onRun(scraperHandler);
 
+/**
+ * An HTTP-triggered Firebase Function that runs the scraper on demand.
+ *
+ * @param {functions.https.Request} request The HTTP request object.
+ * @param {functions.Response} response The HTTP response object.
+ */
 export const scrapeTraitorsOnDemand = onRequest(async (request, response) => {
   try {
     await scraperHandler();

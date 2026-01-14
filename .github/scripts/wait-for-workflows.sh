@@ -76,7 +76,7 @@ $FAILURE_DETAILS
 Please investigate the logs and fix the errors."
       
       # Using a temporary file for the JSON payload to avoid quoting issues
-      jq -n --arg prompt "$JULES_MESSAGE" '{prompt: $prompt}' > jules_payload.json
+      jq -n --arg content "$JULES_MESSAGE" '{message: {content: $content}}' > jules_payload.json
       
       curl -s -X POST "https://jules.googleapis.com/v1alpha/sessions/$SESSION_ID:sendMessage" \
         -H "Content-Type: application/json" \

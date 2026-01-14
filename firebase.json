@@ -6,7 +6,7 @@
   "functions": [
     {
       "source": "functions",
-      "codebase": "traitors",
+      "codebase": "default",
       "ignore": [
         "node_modules",
         ".git",

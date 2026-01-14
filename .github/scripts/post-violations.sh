@@ -41,7 +41,7 @@ $VIOLATIONS
 
 Please fix these issues immediately."
 
-    jq -n --arg prompt "$JULES_MESSAGE" '{prompt: $prompt}' > jules_violation.json
+    jq -n --arg content "$JULES_MESSAGE" '{message: {content: $content}}' > jules_violation.json
     
     HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "https://jules.googleapis.com/v1alpha/sessions/$SESSION_ID:sendMessage" \
       -H "Content-Type: application/json" \
