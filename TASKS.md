@@ -2,7 +2,6 @@ I have updated the `TASKS.md` file as requested. Here is the updated content:
 
 # Task Backlog
 
-- [ ] Implement the scraper logic to fetch Wikipedia HTML for UK Traitors series.
 - [ ] Develop a parser to extract episode/series statistics from the HTML tables.
 - [ ] Add unit tests for the parser logic.
 - [ ] Add schema validation for parsed data to detect page layout changes.
@@ -11,6 +10,7 @@ I have updated the `TASKS.md` file as requested. Here is the updated content:
 - [ ] Add monitoring and alerting for the scheduled Firebase Function.
 
 --- COMPLETED WORK ---
+- [x] Implement the scraper logic to fetch Wikipedia HTML for UK Traitors series.
 - [x] Audit CI/CD workflows for secret usage consistency.
 - [x] Refactor CI/CD workflows for simplicity and maintainability.
 - [x] Correct API key variable in the heartbeat workflow.
