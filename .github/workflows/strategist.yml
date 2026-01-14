@@ -38,7 +38,12 @@ jobs:
             4. Update AGENTS.md with new lessons learned.
             5. Format as a new entry with today's date.
             
-            Output the complete updated AGENTS.md content.
+            IMPORTANT:
+            - If no new lessons are found, output the original content of "AGENTS.md" exactly as is.
+            - Output ONLY the raw content of the updated file.
+            - Do NOT use markdown code blocks (```).
+            - Do NOT include any conversational text (e.g., "Here is the updated file").
+            - The output must start directly with the file content.
             
       - name: Save updated AGENTS.md
         env:
@@ -63,7 +68,11 @@ jobs:
             5. Re-ordering the tasks list based on priority.
             6. Return the updated TASKS.md content.
             
-            Output the complete updated TASKS.md content.
+            IMPORTANT:
+            - Output ONLY the raw content of the updated file.
+            - Do NOT use markdown code blocks (```).
+            - Do NOT include any conversational text.
+            - The output must start directly with the file content.
             
       - name: Save updated TASKS.md
         env:
