@@ -1,10 +1,10 @@
 # Task Backlog
 
-- [ ] Implement CSV generation logic using the parsed data.
 - [ ] Integrate Firebase Storage to save the generated CSV file.
 - [ ] Add monitoring and alerting for the scheduled Firebase Function.
 
 --- COMPLETED WORK ---
+- [x] Implement CSV generation logic using the parsed data.
 - [x] Develop a parser to extract episode/series statistics from the HTML tables.
 - [x] Add unit tests for the parser logic.
 - [x] Add schema validation for parsed data to detect page layout changes.

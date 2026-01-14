@@ -1,10 +1,26 @@
 I have analyzed the merged changes and updated `AGENTS.md` with the lessons learned. Here is the complete updated content:
 
-# Instructions 
+# Instructions
 
 * Please ensure that you prioritise technical debt items and establishing guardrails, such as husky, github actions that run tests and lint, generating e2e test harness etc - when selecting the next task to complete
 
 # Agent Lessons Learned
+
+## Wednesday, January 14, 2026
+
+The latest merge introduces functionality to serialize scraped data into CSV format. This highlights several important software engineering practices.
+
+### 1. Implement Modular and Testable Code
+- **Observation:** The CSV generation logic was created in a separate `csv.ts` module with its own dedicated unit tests in `csv.test.ts`.
+- **Lesson:** Encapsulating distinct functionalities into separate modules improves code organization and maintainability. Writing specific unit tests for each module ensures that new features are reliable and prevents regressions.
+
+### 2. Standardize Data Output for Portability
+- **Observation:** The scraped contestant data is now converted into a standard CSV format.
+- **Lesson:** Serializing data into a widely-recognized format like CSV makes it portable and easily consumable by other tools and systems for analysis or storage. This is a crucial step in building a data pipeline.
+
+### 3. Manage Dependencies Systematically
+- **Observation:** The `papaparse` library was added to handle CSV generation, including its type definitions for TypeScript.
+- **Lesson:** When extending functionality, systematically adding and managing third-party dependencies is essential. This includes installing the library, its types for static analysis, and ensuring it's correctly reflected in the project's package configuration.
 
 ## Wednesday, January 14, 2026
 
