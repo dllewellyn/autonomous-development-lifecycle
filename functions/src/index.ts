@@ -1,8 +1,11 @@
 import * as functions from "firebase-functions";
-import {fetchWikipediaHTML} from "./scraper";
+import * as admin from "firebase-admin";
+import {fetchWikipediaHTML, uploadCsvToStorage} from "./scraper";
 import {parseTraitorsData} from "./parser";
 import {WIKIPEDIA_URL} from "./config";
 import {generateCsv} from "./csv";
+
+admin.initializeApp();
 
 export const scheduledScraper = functions.pubsub
     .schedule("every 24 hours")
@@ -18,7 +21,10 @@ export const scheduledScraper = functions.pubsub
 
         const csv = generateCsv(contestants);
         console.log("Generated CSV:", csv);
+
+        const fileName = "traitors-uk-series-1.csv";
+        await uploadCsvToStorage(csv, fileName);
       } catch (error) {
-        console.error(`Failed to fetch and parse HTML from ${WIKIPEDIA_URL}.`, error);
+        console.error(`Failed to fetch, parse, and upload data from ${WIKIPEDIA_URL}.`, error);
       }
     });

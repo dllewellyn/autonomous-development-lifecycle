@@ -59,7 +59,7 @@ describe("scheduledScraper", () => {
     expect(console.log).toHaveBeenCalledWith("Scraper function triggered.");
     expect(fetchWikipediaHTML).toHaveBeenCalled();
     expect(console.error).toHaveBeenCalledWith(
-      expect.stringContaining("Failed to fetch and parse HTML"),
+      expect.stringContaining("Failed to fetch, parse, and upload data"),
       mockError
     );
   });
