@@ -45,8 +45,10 @@ jobs:
             Output the complete updated AGENTS.md content.
             
       - name: Save updated AGENTS.md
+        env:
+          AGENTS_SUMMARY: ${{ steps.analyze.outputs.summary }}
         run: |
-          echo "${{ steps.analyze.outputs.summary }}" > AGENTS.md
+          printf '%s' "$AGENTS_SUMMARY" > AGENTS.md
           echo "AGENTS.md updated with new lessons"
           
       - name: Prepare tasks context
@@ -76,8 +78,10 @@ jobs:
             Output the complete updated TASKS.md content.
             
       - name: Save updated TASKS.md
+        env:
+          TASKS_SUMMARY: ${{ steps.update_tasks.outputs.summary }}
         run: |
-          echo "${{ steps.update_tasks.outputs.summary }}" > TASKS.md
+          printf '%s' "$TASKS_SUMMARY" > TASKS.md
           echo "TASKS.md updated - completed task removed"
           
       - name: Restart loop
