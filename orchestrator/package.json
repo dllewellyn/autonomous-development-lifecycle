@@ -1,0 +1,26 @@
+{
+  "name": "adl-orchestrator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "dist/cli.js",
+  "bin": {
+    "adl": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsup src/cli.ts --format cjs --target node20 --out-dir dist",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "@octokit/rest": "^21.0.2",
+    "commander": "^12.1.0",
+    "simple-git": "^3.27.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.15",
+    "tsup": "^8.3.0",
+    "typescript": "^5.4.5"
+  }
+}

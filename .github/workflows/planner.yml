@@ -6,6 +6,7 @@ on:
 jobs:
   plan:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: write          # Allow pushing commits
     
@@ -15,6 +16,7 @@ jobs:
         
       - name: Generate plan with Gemini CLI
         id: analyze
+        timeout-minutes: 15
         uses: google-github-actions/run-gemini-cli@v0
         with:
           gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
