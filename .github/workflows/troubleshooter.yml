@@ -15,58 +15,7 @@ jobs:
         id: fetch_question
         env:
           JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
-        run: |
-          set -euo pipefail
-          BASE_URL="https://jules.googleapis.com/v1alpha"
-
-          SESSIONS_RESPONSE=$(curl -fsS -H "X-Goog-Api-Key: $JULES_API_KEY" "$BASE_URL/sessions?pageSize=100")
-          SESSION_NAME=$(echo "$SESSIONS_RESPONSE" | jq -e -r '
-            if has("sessions") and (.sessions | type == "array") then
-              (.sessions
-                | map(select(.state == "AWAITING_USER_FEEDBACK"))
-                | sort_by(.updateTime)
-                | last
-                | .name // empty)
-            else
-              error("Unexpected sessions response shape")
-            end
-          ')
-
-          if [ -z "$SESSION_NAME" ]; then
-            echo "Error: no sessions awaiting user feedback found" >&2
-            exit 1
-          fi
-
-          ACTIVITIES_RESPONSE=$(curl -fsS -H "X-Goog-Api-Key: $JULES_API_KEY" "$BASE_URL/${SESSION_NAME}/activities?pageSize=50")
-          QUESTION=$(echo "$ACTIVITIES_RESPONSE" | jq -e -r '
-            if has("activities") and (.activities | type == "array") then
-              (.activities
-                | map(select(.agentMessaged.agentMessage != null))
-                | sort_by(.createTime)
-                | last
-                | .agentMessaged.agentMessage // empty)
-            else
-              error("Unexpected activities response shape")
-            end
-          ')
-
-          if [ -z "$QUESTION" ]; then
-            echo "Error: no agent message found for $SESSION_NAME" >&2
-            exit 1
-          fi
-
-          {
-            echo "question<<EOF"
-            echo "$QUESTION"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-
-          {
-            echo "BLOCKER_QUESTION<<EOF"
-            echo "$QUESTION"
-            echo "EOF"
-          } >> "$GITHUB_ENV"
-          echo "SESSION_NAME=$SESSION_NAME" >> "$GITHUB_ENV"
+        run: ./.github/scripts/fetch-question.sh
           
       - name: Generate answer with Gemini CLI
         id: generate_answer
@@ -96,21 +45,8 @@ jobs:
       - name: Post answer to Jules
         env:
           JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
-        run: |
-          set -euo pipefail
-          BASE_URL="https://jules.googleapis.com/v1alpha"
-          : "${SESSION_NAME:?}"
-
-          ANSWER=$(cat final_answer.txt)
-          PAYLOAD=$(jq -n --arg prompt "$ANSWER" '{prompt: $prompt}')
-
-          curl -fsS -X POST \
-            -H "X-Goog-Api-Key: $JULES_API_KEY" \
-            -H "Content-Type: application/json" \
-            -d "$PAYLOAD" \
-            "$BASE_URL/${SESSION_NAME}:sendMessage"
-
-          echo "Posted answer to Jules"
+          SESSION_NAME: ${{ env.SESSION_NAME }}
+        run: ./.github/scripts/post-answer.sh
           
       - name: Log troubleshooting
         run: |

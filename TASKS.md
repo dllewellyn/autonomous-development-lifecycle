@@ -1,5 +1,8 @@
 # Task Backlog
 
+- [ ] Align ESLint configuration with Constitution (Strict rules + JSDoc enforcement).
+- [ ] Verify/Update Husky pre-commit hooks to run lint and tests before commit.
+- [ ] Update CI/CD pipeline to strictly enforce 90% test coverage threshold.
 - [ ] Integrate Firebase Storage to save the generated CSV file.
 - [ ] Add monitoring and alerting for the scheduled Firebase Function.
 

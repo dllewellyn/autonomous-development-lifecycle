@@ -19,7 +19,7 @@ jobs:
           fetch-depth: 2 # Need previous commit for comparison
           
       - name: Prepare merge context
-        run: git diff HEAD^ HEAD > merge_diff.txt
+        run: ./.github/scripts/prepare-merge-context.sh
           
       - name: Extract lessons learned with Gemini CLI
         id: analyze
@@ -48,9 +48,7 @@ jobs:
       - name: Save updated AGENTS.md
         env:
           AGENTS_SUMMARY: ${{ steps.analyze.outputs.summary }}
-        run: |
-          printf '%s' "$AGENTS_SUMMARY" > AGENTS.md
-          echo "AGENTS.md updated with new lessons"
+        run: ./.github/scripts/save-agents-memory.sh
           
       - name: Update TASKS.md with Gemini CLI
         id: update_tasks
@@ -77,9 +75,7 @@ jobs:
       - name: Save updated TASKS.md
         env:
           TASKS_SUMMARY: ${{ steps.update_tasks.outputs.summary }}
-        run: |
-          printf '%s' "$TASKS_SUMMARY" > TASKS.md
-          echo "TASKS.md updated - completed task removed"
+        run: ./.github/scripts/save-tasks.sh
           
       - name: Restart loop
         run: ./.github/scripts/restart-loop.sh
@@ -92,4 +88,8 @@ jobs:
       - name: Trigger Planner
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh workflow run planner.yml
+          WORKFLOW_ID: planner.yml
+          REF: main
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+        run: ./.github/scripts/trigger-workflow.sh
