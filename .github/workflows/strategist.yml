@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write          # Allow pushing commits
+      actions: write           # Allow triggering workflows
     
     steps:
       - name: Checkout repository
@@ -78,3 +79,8 @@ jobs:
         env:
           COMMIT_MESSAGE: "chore: update agent memory and restart loop"
         run: ./.github/scripts/commit-changes.sh AGENTS.md TASKS.md .ralph-state.json
+
+      - name: Trigger Planner
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run planner.yml
