@@ -9,6 +9,9 @@ on:
 jobs:
   heartbeat:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
     
     steps:
       - name: Checkout repository
@@ -40,5 +43,4 @@ jobs:
       - name: Log heartbeat
         run: |
           echo "Heartbeat completed. Status: ${{ steps.read_state.outputs.status }}"
-
 
