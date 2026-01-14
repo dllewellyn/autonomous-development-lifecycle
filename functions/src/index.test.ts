@@ -18,6 +18,11 @@ jest.mock("firebase-functions", () => ({
   },
 }));
 
+jest.mock("firebase-functions/v2/https", () => ({
+  onRequest: jest.fn(),
+}));
+
+
 // Mock modules
 jest.mock("./scraper");
 jest.mock("./parser");
@@ -59,11 +64,11 @@ describe("scraperHandler", () => {
     expect(uploadCsvToStorage).toHaveBeenCalledWith(mockCsv, "traitors-uk-series-1.csv");
   });
 
-  it("should log an error on failure", async () => {
+  it("should log an error on failure and re-throw the error", async () => {
     const mockError = new Error("Failed to fetch");
     (fetchWikipediaHTML as jest.Mock).mockRejectedValue(mockError);
 
-    await scraperHandler();
+    await expect(scraperHandler()).rejects.toThrow("Failed to fetch");
 
     expect(console.log).toHaveBeenCalledWith("Scraper function triggered.");
     expect(fetchWikipediaHTML).toHaveBeenCalled();
@@ -71,5 +76,51 @@ describe("scraperHandler", () => {
       expect.stringContaining("Failed to fetch, parse, and upload data"),
       mockError,
     );
+  });
+});
+
+// After all modules are mocked, load the index to get the handler
+require("./index");
+const {onRequest} = require("firebase-functions/v2/https");
+const onDemandHandler = (onRequest as jest.Mock).mock.calls[0][0];
+
+describe("scrapeTraitorsOnDemand", () => {
+  let mockRequest: any;
+  let mockResponse: any;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockRequest = {};
+    mockResponse = {
+      status: jest.fn().mockReturnThis(),
+      send: jest.fn(),
+    };
+  });
+
+  it("should call scraperHandler and return 200 on success", async () => {
+    // Mock the full success path for scraperHandler's dependencies
+    (fetchWikipediaHTML as jest.Mock).mockResolvedValue("<html></html>");
+    (parseTraitorsData as jest.Mock).mockReturnValue([]);
+    (generateCsv as jest.Mock).mockReturnValue("csv");
+    (uploadCsvToStorage as jest.Mock).mockResolvedValue(undefined);
+
+    await onDemandHandler(mockRequest, mockResponse);
+
+    // Verify that the scraperHandler's logic was executed
+    expect(uploadCsvToStorage).toHaveBeenCalledTimes(1);
+    expect(mockResponse.status).toHaveBeenCalledWith(200);
+    expect(mockResponse.send).toHaveBeenCalledWith("Scraping complete.");
+  });
+
+  it("should return 500 if scraperHandler fails", async () => {
+    // Mock a failure in one of the scraperHandler's dependencies
+    const mockError = new Error("Scraping failed");
+    (fetchWikipediaHTML as jest.Mock).mockRejectedValue(mockError);
+
+    await onDemandHandler(mockRequest, mockResponse);
+
+    // Verify that the error is caught and a 500 is returned
+    expect(mockResponse.status).toHaveBeenCalledWith(500);
+    expect(mockResponse.send).toHaveBeenCalledWith("Scraping failed.");
   });
 });

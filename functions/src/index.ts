@@ -25,9 +25,22 @@ export const scraperHandler = async (): Promise<void> => {
     await uploadCsvToStorage(csv, fileName);
   } catch (error) {
     console.error(`Failed to fetch, parse, and upload data from ${WIKIPEDIA_URL}.`, error);
+    throw error;
   }
 };
+
+import {onRequest} from "firebase-functions/v2/https";
 
 export const scheduledScraper = functions.pubsub
     .schedule("every 24 hours")
     .onRun(scraperHandler);
+
+export const scrapeTraitorsOnDemand = onRequest(async (request, response) => {
+  try {
+    await scraperHandler();
+    response.status(200).send("Scraping complete.");
+  } catch (error) {
+    console.error("Error during on-demand scraping:", error);
+    response.status(500).send("Scraping failed.");
+  }
+});
