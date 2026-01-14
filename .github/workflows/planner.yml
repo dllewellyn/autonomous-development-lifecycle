@@ -42,10 +42,14 @@ jobs:
 
       - name: Create Jules task with generated plan
         id: jules_task
-        uses: google-labs-code/jules-invoke@v1.0.0
-        with:
-          jules_api_key: ${{ secrets.JULES_API_KEY }}
-          prompt: ${{ steps.analyze.outputs.summary }}
+        env:
+          JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          PROMPT: ${{ steps.analyze.outputs.summary }}
+        run: |
+          SESSION_ID=$(./.github/scripts/start-jules-session.sh "$PROMPT")
+          echo "session_id=$SESSION_ID" >> "$GITHUB_OUTPUT"
           
       - name: Update Ralph state
         env:
