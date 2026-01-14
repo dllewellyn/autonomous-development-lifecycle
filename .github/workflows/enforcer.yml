@@ -31,24 +31,23 @@ jobs:
           prompt: |
             You are the Enforcer for an autonomous development system.
             
-            Review the following PR diff against the repository's CONSTITUTION.md.
+            Your task is to review the code changes in this pull request against the repository's CONSTITUTION.md and ensure the intended task has been completed correctly as per TASKS.md.
             
-            Your task:
-            1. Check if the changes comply with ALL rules in CONSTITUTION.md
-            2. If there are violations, list them clearly with specific line references
-            3. If compliant, respond with "COMPLIANT"
+            Please:
+            1. Read CONSTITUTION.md to understand the repository rules.
+            2. Read TASKS.md to identify the task(s) this PR is intended to complete.
+            3. Read pr_diff.txt to examine the changes.
+            4. Verify that:
+               - The changes comply with ALL rules in CONSTITUTION.md.
+               - The intended task(s) from TASKS.md have been implemented correctly and completely.
+            5. If there are code violations or the task implementation is incorrect/incomplete, list them as violations.
+            6. If everything is compliant and the task is fully satisfied, respond with "COMPLIANT".
             
             Respond in JSON format:
             {
               "compliant": true/false,
-              "violations": ["violation 1", "violation 2", ...]
+              "violations": ["reason/violation 1", "reason/violation 2", ...]
             }
-            
-            --- CONSTITUTION.md ---
-            ${{ env.CONSTITUTION_CONTENT }}
-            
-            --- PR DIFF ---
-            ${{ env.PR_DIFF_CONTENT }}
             
       - name: Parse audit result
         id: parse_result

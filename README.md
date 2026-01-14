@@ -188,7 +188,9 @@ graph LR
 #### 1. **Heartbeat** (Orchestrator)
 - Runs every 5 minutes
 - Checks system status in `.ralph-state.json`
-- Triggers Planner workflow when needed (based on time since last activity)
+- Triggers Planner when no active tasks are found in Jules
+- Triggers Troubleshooter when a task is waiting for input
+- Stops the loop and notifies a human when a task is blocked
 - Simple and lightweight - Jules action handles task management
 
 #### 2. **Planner** (Task Creator)
