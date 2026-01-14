@@ -82,9 +82,9 @@ describe("scraperHandler", () => {
 // After all modules are mocked, load the index to get the handler
 require("./index");
 const {onRequest} = require("firebase-functions/v2/https");
-const onDemandHandler = (onRequest as jest.Mock).mock.calls[0][0];
+const apiHandler = (onRequest as jest.Mock).mock.calls[0][0];
 
-describe("scrapeTraitorsOnDemand", () => {
+describe("api", () => {
   let mockRequest: any;
   let mockResponse: any;
 
@@ -93,34 +93,40 @@ describe("scrapeTraitorsOnDemand", () => {
     mockRequest = {};
     mockResponse = {
       status: jest.fn().mockReturnThis(),
-      send: jest.fn(),
+      json: jest.fn(),
     };
   });
 
-  it("should call scraperHandler and return 200 on success", async () => {
+  it("should return a 200 OK JSON response on success", async () => {
     // Mock the full success path for scraperHandler's dependencies
     (fetchWikipediaHTML as jest.Mock).mockResolvedValue("<html></html>");
     (parseTraitorsData as jest.Mock).mockReturnValue([]);
     (generateCsv as jest.Mock).mockReturnValue("csv");
     (uploadCsvToStorage as jest.Mock).mockResolvedValue(undefined);
 
-    await onDemandHandler(mockRequest, mockResponse);
+    await apiHandler(mockRequest, mockResponse);
 
     // Verify that the scraperHandler's logic was executed
     expect(uploadCsvToStorage).toHaveBeenCalledTimes(1);
     expect(mockResponse.status).toHaveBeenCalledWith(200);
-    expect(mockResponse.send).toHaveBeenCalledWith("Scraping complete.");
+    expect(mockResponse.json).toHaveBeenCalledWith({
+      status: "success",
+      message: "Scraping completed.",
+    });
   });
 
-  it("should return 500 if scraperHandler fails", async () => {
+  it("should return a 500 Internal Server Error JSON response on failure", async () => {
     // Mock a failure in one of the scraperHandler's dependencies
     const mockError = new Error("Scraping failed");
     (fetchWikipediaHTML as jest.Mock).mockRejectedValue(mockError);
 
-    await onDemandHandler(mockRequest, mockResponse);
+    await apiHandler(mockRequest, mockResponse);
 
     // Verify that the error is caught and a 500 is returned
     expect(mockResponse.status).toHaveBeenCalledWith(500);
-    expect(mockResponse.send).toHaveBeenCalledWith("Scraping failed.");
+    expect(mockResponse.json).toHaveBeenCalledWith({
+      status: "error",
+      message: "An error occurred during scraping.",
+    });
   });
 });
