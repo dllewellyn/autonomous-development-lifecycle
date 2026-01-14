@@ -11,12 +11,90 @@ jobs:
       contents: write          # Allow pushing commits
       pull-requests: write     # Allow creating reviews and comments
       issues: write            # Allow creating issue comments
+      actions: read            # Allow listing workflow runs
     
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0 # Need full history for diff
+
+      - name: Check for failed workflows
+        uses: actions/github-script@v7
+        env:
+          JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            
+            // Get the head SHA of the PR
+            const headSha = context.payload.pull_request.head.sha;
+            console.log(`Checking for failed workflows on commit: ${headSha}`);
+
+            // List workflow runs for the commit
+            const { data: runs } = await github.rest.actions.listWorkflowRunsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              head_sha: headSha,
+              status: 'completed' // Only look at completed runs
+            });
+
+            const currentRunId = context.runId;
+            const failedRuns = runs.workflow_runs.filter(run => 
+              run.conclusion === 'failure' && run.id !== currentRunId
+            );
+
+            if (failedRuns.length > 0) {
+              console.log(`Found ${failedRuns.length} failed workflow(s).`);
+              
+              const failureDetails = failedRuns.map(run => 
+                `- **${run.name}**: [View Log](${run.html_url})`
+              ).join('\n');
+
+              const message = `## ❌ CI Checks Failed\n\nThe following workflows failed for this commit:\n\n${failureDetails}\n\nPlease fix the build/tests before merging.`;
+
+              // Post comment to PR
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: message
+              });
+
+              // Send to Jules API
+              try {
+                if (fs.existsSync('.ralph-state.json')) {
+                  const state = JSON.parse(fs.readFileSync('.ralph-state.json', 'utf8'));
+                  const sessionId = state.current_task_id;
+                  
+                  if (sessionId) {
+                    console.log(`Reporting failure to Jules Session: ${sessionId}`);
+                    const julesKey = process.env.JULES_API_KEY;
+                    
+                    await fetch(`https://jules.googleapis.com/v1alpha/sessions/${sessionId}:sendMessage`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'X-Goog-Api-Key': julesKey
+                      },
+                      body: JSON.stringify({
+                        message: {
+                          content: `CI Checks Failed:\n\n${failureDetails}\n\nPlease investigate the logs and fix the errors.`
+                        }
+                      })
+                    });
+                  }
+                }
+              } catch (error) {
+                console.error('Error reporting to Jules:', error);
+              }
+
+              // Fail the Enforcer job
+              core.setFailed('Other workflows have failed. Blocking merge.');
+            } else {
+              console.log('No failed workflows found.');
+            }
           
       - name: Prepare PR context
         env:
