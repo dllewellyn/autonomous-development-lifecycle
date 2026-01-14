@@ -1,5 +1,3 @@
-I have analyzed the merged changes and updated `AGENTS.md` with the lessons learned. Here is the complete updated content:
-
 # Instructions
 
 * Please ensure that you prioritise technical debt items and establishing guardrails, such as husky, github actions that run tests and lint, generating e2e test harness etc - when selecting the next task to complete
