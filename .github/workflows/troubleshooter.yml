@@ -1,0 +1,99 @@
+name: "Workflow C: The Troubleshooter"
+
+on:
+  workflow_dispatch: # Triggered by Heartbeat workflow
+
+jobs:
+  troubleshoot:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Fetch blocker question from Jules
+        id: fetch_question
+        env:
+          JULES_API_TOKEN: ${{ secrets.JULES_API_TOKEN }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+        run: |
+          # Get current task from state
+          TASK_ID=$(jq -r '.current_task_id' .ralph-state.json)
+          
+          # Fetch the blocker question from Jules
+          RESPONSE=$(curl -s -H "Authorization: Bearer $JULES_API_TOKEN" \
+            "https://api.jules.ai/repos/${REPO_OWNER}/${REPO_NAME}/tasks/${TASK_ID}")
+          
+          QUESTION=$(echo "$RESPONSE" | jq -r '.blocker_question')
+          echo "question=$QUESTION" >> $GITHUB_OUTPUT
+          echo "Blocker question: $QUESTION"
+          
+          # Save to environment variable
+          echo "BLOCKER_QUESTION<<EOF" >> $GITHUB_ENV
+          echo "$QUESTION" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+          
+      - name: Prepare context
+        run: |
+          CONTEXT_MAP=$(cat CONTEXT_MAP.md 2>/dev/null || echo "File not found")
+          CONSTITUTION=$(cat CONSTITUTION.md 2>/dev/null || echo "File not found")
+          
+          echo "CONTEXT_MAP_CONTENT<<EOF" >> $GITHUB_ENV
+          echo "$CONTEXT_MAP" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+          
+          echo "CONSTITUTION_CONTENT<<EOF" >> $GITHUB_ENV
+          echo "$CONSTITUTION" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+          
+      - name: Generate answer with Gemini CLI
+        id: generate_answer
+        uses: google-github-actions/run-gemini-cli@v1
+        with:
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          prompt: |
+            You are the Troubleshooter for an autonomous development system.
+            
+            Jules has encountered a blocker and needs technical input.
+            
+            Analyze the codebase and provide a definitive technical answer to the following question:
+            
+            ${{ env.BLOCKER_QUESTION }}
+            
+            Context from repository:
+            
+            --- CONTEXT_MAP.md ---
+            ${{ env.CONTEXT_MAP_CONTENT }}
+            
+            --- CONSTITUTION.md ---
+            ${{ env.CONSTITUTION_CONTENT }}
+            
+            Provide a clear, actionable answer that Jules can use to proceed.
+            
+      - name: Save answer
+        run: |
+          echo "${{ steps.generate_answer.outputs.response }}" > final_answer.txt
+          echo "Answer generated and saved"
+          
+      - name: Post answer to Jules
+        env:
+          JULES_API_TOKEN: ${{ secrets.JULES_API_TOKEN }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+        run: |
+          TASK_ID=$(jq -r '.current_task_id' .ralph-state.json)
+          ANSWER=$(cat final_answer.txt)
+          
+          # Post the answer back to Jules
+          curl -X POST \
+            -H "Authorization: Bearer $JULES_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"answer\": $(jq -Rs . <<< "$ANSWER")}" \
+            "https://api.jules.ai/repos/${REPO_OWNER}/${REPO_NAME}/tasks/${TASK_ID}/answer"
+          
+          echo "Posted answer to Jules"
+          
+      - name: Log troubleshooting
+        run: |
+          echo "Troubleshooting completed for task $(jq -r '.current_task_id' .ralph-state.json)"

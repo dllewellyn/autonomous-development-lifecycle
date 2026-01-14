@@ -1,0 +1,65 @@
+name: "Workflow B: The Planner"
+
+on:
+  workflow_dispatch: # Triggered by Heartbeat workflow
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Prepare context files
+        id: prepare_context
+        run: ./.github/scripts/prepare-context.sh
+          
+      - name: Generate plan with Gemini CLI
+        id: analyze
+        uses: google-github-actions/run-gemini-cli@v1
+        with:
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          prompt: |
+            You are the Planner for an autonomous development system.
+            
+            Analyze the following files:
+            - GOALS.md: Long-term vision
+            - TASKS.md: Current backlog
+            - CONTEXT_MAP.md: Architectural map
+            - AGENTS.md: Learned behaviors and performance
+            
+            Generate a detailed technical plan for the next task to work on.
+            The plan should:
+            1. Select the highest priority task from TASKS.md
+            2. Break it down into concrete implementation steps
+            3. Reference relevant parts of CONTEXT_MAP.md
+            4. Consider lessons learned from AGENTS.md
+            5. Be specific enough for Jules to execute
+            
+            --- GOALS.md ---
+            ${{ env.GOALS_CONTENT }}
+            
+            --- TASKS.md ---
+            ${{ env.TASKS_CONTENT }}
+            
+            --- CONTEXT_MAP.md ---
+            ${{ env.CONTEXT_MAP_CONTENT }}
+            
+            --- AGENTS.md ---
+            ${{ env.AGENTS_CONTENT }}
+            
+          
+      - name: Create Jules task with generated plan
+        uses: google-labs-code/jules-invoke@v1
+        with:
+          jules_api_key: ${{ secrets.JULES_API_KEY }}
+          prompt: ${{ steps.analyze.outputs.response }}
+          
+      - name: Update Ralph state
+        run: ./.github/scripts/update-state.sh
+          
+      - name: Commit changes
+        env:
+          COMMIT_MESSAGE: "chore: updated state after creating Jules task"
+        run: ./.github/scripts/commit-changes.sh .ralph-state.json

@@ -1,0 +1,87 @@
+name: "Workflow E: The Strategist"
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  evolve:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2 # Need previous commit for comparison
+          
+      - name: Prepare merge context
+        run: ./.github/scripts/prepare-merge-context.sh
+          
+      - name: Extract lessons learned with Gemini CLI
+        id: analyze
+        uses: google-github-actions/run-gemini-cli@v1
+        with:
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          prompt: |
+            You are the Strategist for an autonomous development system.
+            
+            A PR has just been merged to main. Analyze the changes and extract lessons learned.
+            
+            Your task:
+            1. Review the merged changes
+            2. Identify patterns, challenges, or insights
+            3. Update AGENTS.md with new lessons learned
+            4. Format as a new entry with today's date
+            
+            Current AGENTS.md content:
+            ${{ env.AGENTS_CONTENT }}
+            
+            --- MERGED CHANGES ---
+            ${{ env.MERGE_DIFF_CONTENT }}
+            
+            Output the complete updated AGENTS.md content.
+            
+      - name: Save updated AGENTS.md
+        run: |
+          echo "${{ steps.analyze.outputs.response }}" > AGENTS.md
+          echo "AGENTS.md updated with new lessons"
+          
+      - name: Prepare tasks context
+        run: ./.github/scripts/prepare-tasks-context.sh
+          
+      - name: Update TASKS.md with Gemini CLI
+        id: update_tasks
+        uses: google-github-actions/run-gemini-cli@v1
+        with:
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          prompt: |
+            You are the Strategist for an autonomous development system.
+            
+            A task has been completed and merged. Update TASKS.md by:
+            1. Finding the task that was just completed (based on the merge diff)
+            2. Marking it as complete
+            3. Work out, based on the goals and the completed task, if there are any new tasks that need to be added to the list
+            4. Work out what the best ordering of the tasks are, and re-order the tasks list
+            5. Return the updated TASKS.md content
+            
+            Current TASKS.md:
+            ${{ env.TASKS_CONTENT }}
+            
+            --- COMPLETED WORK ---
+            ${{ env.MERGE_DIFF_CONTENT }}
+            
+            Output the complete updated TASKS.md content.
+            
+      - name: Save updated TASKS.md
+        run: |
+          echo "${{ steps.update_tasks.outputs.response }}" > TASKS.md
+          echo "TASKS.md updated - completed task removed"
+          
+      - name: Restart loop
+        run: ./.github/scripts/restart-loop.sh
+          
+      - name: Commit changes
+        env:
+          COMMIT_MESSAGE: "chore: update agent memory and restart loop"
+        run: ./.github/scripts/commit-changes.sh AGENTS.md TASKS.md .ralph-state.json

@@ -1,0 +1,44 @@
+name: "Workflow A: The Heartbeat"
+
+on:
+  schedule:
+    # Runs every 55 minutes
+    - cron: '*/55 * * * *'
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  heartbeat:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Read Ralph state
+        id: read_state
+        run: ./.github/scripts/read-state.sh
+          
+      - name: Check if we should trigger Planner
+        if: steps.read_state.outputs.status == 'started'
+        id: check_trigger
+        run: ./.github/scripts/check-trigger.sh
+          
+      - name: Trigger Planner workflow
+        if: steps.check_trigger.outputs.should_trigger == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'planner.yml',
+              ref: 'main'
+            });
+            console.log('Triggered Planner workflow');
+            
+      - name: Log heartbeat
+        run: |
+          echo "Heartbeat completed. Status: ${{ steps.read_state.outputs.status }}"
+
+
