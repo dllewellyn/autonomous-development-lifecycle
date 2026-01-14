@@ -3,6 +3,8 @@
 ## Vision
 Create an automated application that scrapes Wikipedia every 24 hours to collect detailed statistics for the UK series of *The Traitors*. The goal is to maintain an up-to-date, comprehensive CSV dataset capturing episode-by-episode and series-by-series performance.
 
+I also want to have an endpoint I can call as a 'one off' so I can be more adhoc in my triggering of the functionality
+
 ## Key Performance Indicators
 - **Reliability**: Successful scraping and CSV generation every 24 hours.
 - **Accuracy**: 100% data fidelity compared to Wikipedia source tables.

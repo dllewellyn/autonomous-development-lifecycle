@@ -2,6 +2,7 @@ I have updated the `TASKS.md` file as requested. Here is the updated content:
 
 # Task Backlog
 
+- [ ] Create a CI/CD pipeline that runs build, tests, lint, husky etc to ensure pull-requests are up-to-scratch
 - [ ] Develop a parser to extract episode/series statistics from the HTML tables.
 - [ ] Add unit tests for the parser logic.
 - [ ] Add schema validation for parsed data to detect page layout changes.
