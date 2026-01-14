@@ -22,4 +22,12 @@ describe('parseTraitorsData', () => {
         status: 'Winner(Episode 12)',
     });
   });
+
+  it('should filter out invalid contestant data', () => {
+    const html = fs.readFileSync(path.join(__dirname, 'fixtures', 'traitors-series-1-malformed.html'), 'utf-8');
+    const result = parseTraitorsData(html);
+
+    expect(result).toHaveLength(2);
+    expect(result.find(c => c.name === 'Invalid Contestant')).toBeUndefined();
+  });
 });

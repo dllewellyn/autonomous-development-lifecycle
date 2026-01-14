@@ -1,16 +1,20 @@
 
 import * as cheerio from 'cheerio';
+import { z } from 'zod';
 
-export interface Contestant {
-  name: string;
-  age: number;
-  occupation: string;
-  status: string;
-}
+export const ContestantSchema = z.object({
+  name: z.string().min(1),
+  age: z.number().int().positive(),
+  occupation: z.string().min(1),
+  status: z.string().min(1),
+});
+
+export type Contestant = z.infer<typeof ContestantSchema>;
+
 
 export const parseTraitorsData = (html: string): Contestant[] => {
   const $ = cheerio.load(html);
-  const contestants: Contestant[] = [];
+  const rawContestants: any[] = [];
 
   let contestantsTable: cheerio.Cheerio | undefined;
 
@@ -33,7 +37,7 @@ export const parseTraitorsData = (html: string): Contestant[] => {
         const occupation = $(columns[3]).text().trim();
         const status = $(columns[5]).text().trim().replace(/\[\d+\]/g, '');
 
-        contestants.push({
+        rawContestants.push({
           name,
           age,
           occupation,
@@ -43,5 +47,17 @@ export const parseTraitorsData = (html: string): Contestant[] => {
     });
   }
 
-  return contestants;
+  const validatedContestants = rawContestants
+    .map((contestant) => {
+      const validationResult = ContestantSchema.safeParse(contestant);
+      if (!validationResult.success) {
+        console.error(`Validation failed for contestant: ${contestant.name}`, validationResult.error.issues);
+        return null;
+      }
+      return validationResult.data;
+    })
+    .filter((c): c is Contestant => c !== null);
+
+
+  return validatedContestants;
 };
