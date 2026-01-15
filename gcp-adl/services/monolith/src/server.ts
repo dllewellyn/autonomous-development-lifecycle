@@ -7,6 +7,7 @@ import { setupStrategistHandler } from './handlers/strategist';
 import { runHeartbeat } from './services/heartbeat';
 import { runPlanner } from './services/planner';
 import { runTroubleshooter } from './services/troubleshooter';
+import { RepoCloner } from './utils/repo-cloner';
 import { Request, Response, Application } from 'express';
 import * as path from 'path';
 import * as express from 'express';
@@ -84,6 +85,7 @@ export function setupServer(app: Probot, options: any) {
       const octokit = new Octokit({
         auth: process.env.GITHUB_TOKEN || process.env.GH_TOKEN
       });
+      const repoCloner = new RepoCloner();
 
       // Run heartbeat with bound functions
       const result = await runHeartbeat({
@@ -95,6 +97,7 @@ export function setupServer(app: Probot, options: any) {
             julesClient,
             geminiClient,
             octokit: octokit as any,
+            repoCloner,
             owner,
             repo,
             branch: githubBranch,
@@ -105,6 +108,7 @@ export function setupServer(app: Probot, options: any) {
             julesClient,
             geminiClient,
             octokit: octokit as any,
+            repoCloner,
             sessionId,
             question,
             owner,
@@ -146,6 +150,7 @@ export function setupServer(app: Probot, options: any) {
         julesClient: new JulesClient(process.env.JULES_API_KEY!),
         geminiClient: new GeminiClient(process.env.GEMINI_API_KEY!),
         octokit: octokit as any,
+        repoCloner: new RepoCloner(),
         owner,
         repo,
         branch: githubBranch,
@@ -209,6 +214,7 @@ export function setupServer(app: Probot, options: any) {
         julesClient,
         geminiClient,
         octokit: octokit as any,
+        repoCloner: new RepoCloner(),
         owner,
         repo,
         branch: githubBranch,

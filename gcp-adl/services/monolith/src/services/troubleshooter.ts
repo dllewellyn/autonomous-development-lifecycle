@@ -1,11 +1,13 @@
 import { JulesClient } from '@gcp-adl/jules';
 import { GeminiClient } from '@gcp-adl/gemini';
 import { Octokit } from '@octokit/rest';
+import { RepoCloner } from '../utils/repo-cloner';
 
 export interface TroubleshooterContext {
   julesClient: JulesClient;
   geminiClient: GeminiClient;
   octokit: Octokit;
+  repoCloner: RepoCloner;
   sessionId: string;
   question: string;
   owner: string;
@@ -24,8 +26,18 @@ export interface TroubleshooterResult {
  */
 export async function runTroubleshooter(context: TroubleshooterContext): Promise<TroubleshooterResult> {
   console.log(`[Troubleshooter] Processing question for session ${context.sessionId}...`);
+  let repoPath: string | undefined;
 
   try {
+    // 0. Clone repository
+    repoPath = await context.repoCloner.clone(
+      context.owner,
+      context.repo,
+      context.branch,
+      process.env.GITHUB_TOKEN || process.env.GH_TOKEN!
+    );
+    console.log('[Troubleshooter] Repository cloned to:', repoPath);
+
     // 1. Fetch context files
     console.log('[Troubleshooter] Fetching repository files...');
     const [contextMapRes, constitutionRes] = await Promise.all([
@@ -69,7 +81,7 @@ ${constitutionContent}
 
 Provide a clear, actionable answer that Jules can use to proceed.`;
 
-    const answer = await context.geminiClient.generateContent(prompt);
+    const answer = await context.geminiClient.generateContent(prompt, { cwd: repoPath });
 
     console.log('[Troubleshooter] Generated answer (preview):', answer.substring(0, 200) + '...');
 
@@ -86,5 +98,9 @@ Provide a clear, actionable answer that Jules can use to proceed.`;
   } catch (error) {
     console.error('[Troubleshooter] Error:', error);
     throw error;
+  } finally {
+    if (repoPath) {
+      await context.repoCloner.cleanup(repoPath);
+    }
   }
 }

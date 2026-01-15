@@ -2,12 +2,14 @@ import { StateManager } from '@gcp-adl/state';
 import { JulesClient } from '@gcp-adl/jules';
 import { GeminiClient } from '@gcp-adl/gemini';
 import { Octokit } from '@octokit/rest';
+import { RepoCloner } from '../utils/repo-cloner';
 
 export interface PlannerContext {
   stateManager: StateManager;
   julesClient: JulesClient;
   geminiClient: GeminiClient;
   octokit: Octokit;
+  repoCloner: RepoCloner;
   owner: string;
   repo: string;
   branch: string;
@@ -26,8 +28,18 @@ export interface PlannerResult {
  */
 export async function runPlanner(context: PlannerContext): Promise<PlannerResult> {
   console.log('[Planner] Starting task creation...');
+  let repoPath: string | undefined;
 
   try {
+    // 0. Clone repository
+    repoPath = await context.repoCloner.clone(
+      context.owner,
+      context.repo,
+      context.branch,
+      process.env.GITHUB_TOKEN || process.env.GH_TOKEN!
+    );
+    console.log('[Planner] Repository cloned to:', repoPath);
+
     // 1. Check for active session
     const currentState = await context.stateManager.readState();
     if (currentState.current_task_id) {
@@ -83,7 +95,8 @@ export async function runPlanner(context: PlannerContext): Promise<PlannerResult
       goalsContent,
       tasksContent,
       contextMapContent,
-      agentsContent
+      agentsContent,
+      { cwd: repoPath }
     );
 
     console.log('[Planner] Generated plan (preview):', plan.substring(0, 200) + '...');
@@ -113,5 +126,9 @@ export async function runPlanner(context: PlannerContext): Promise<PlannerResult
   } catch (error) {
     console.error('[Planner] Error:', error);
     throw error;
+  } finally {
+    if (repoPath) {
+      await context.repoCloner.cleanup(repoPath);
+    }
   }
 }

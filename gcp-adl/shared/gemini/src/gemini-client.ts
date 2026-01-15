@@ -7,6 +7,7 @@ import { spawn } from 'child_process';
 export interface GeminiClientOptions {
   model?: string;
   fallbackModel?: string;
+  cwd?: string;
 }
 
 export class GeminiClient {
@@ -15,7 +16,6 @@ export class GeminiClient {
   private defaultOptions: GeminiClientOptions;
 
   constructor(apiKey: string, options: GeminiClientOptions = {}) {
-    this.apiKey = apiKey;
     this.apiKey = apiKey;
     try {
         // Resolve the local gemini-cli binary path
@@ -36,19 +36,26 @@ export class GeminiClient {
   private async runCli(prompt: string, options: GeminiClientOptions = {}, isRetry: boolean = false): Promise<string> {
     return new Promise((resolve, reject) => {
       // Calling `gemini` with prompt via stdin, requesting JSON output
-      const args: string[] = ['--output-format', 'json']; 
+      // --yolo enables tools in non-interactive mode
+      const args: string[] = ['--output-format', 'json', '--yolo']; 
       
       const model = options.model || this.defaultOptions.model;
       if (model) {
         args.push('--model', model);
       } 
       
-      const child = this.spawnChild(this.cliPath, args, {
-        env: {
-          ...process.env,
-          GEMINI_API_KEY: this.apiKey,
-        },
-      });
+      const repoPath = options.cwd || this.defaultOptions.cwd;
+      const env: Record<string, string> = {
+        ...process.env,
+        GEMINI_API_KEY: this.apiKey,
+      };
+      
+      // Pass repository path via environment variable if provided
+      if (repoPath) {
+        env.REPO_PATH = repoPath;
+      }
+
+      const child = this.spawnChild(this.cliPath, args, { env });
 
       let stdout = '';
       let stderr = '';

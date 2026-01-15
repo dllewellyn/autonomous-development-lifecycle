@@ -2,6 +2,7 @@ import { Probot, Context } from 'probot';
 import { StateManager } from '@gcp-adl/state';
 import { GeminiClient } from '@gcp-adl/gemini';
 import { PlannerContext } from '../services/planner';
+import { RepoCloner } from '../utils/repo-cloner';
 
 /**
  * Strategist Handler - Learns from merges and restarts the cycle
@@ -42,10 +43,22 @@ export function setupStrategistHandler(
 
     console.log(`[Strategist] Processing push to ${branch} in ${owner}/${repo}`);
 
+    let repoPath: string | undefined;
+    const repoCloner = new RepoCloner();
+
     try {
       // Initialize clients
       const geminiClient = new GeminiClient(process.env.GEMINI_API_KEY!);
       const stateManager = new StateManager(process.env.STATE_BUCKET!);
+
+      // 0. Clone repository
+      repoPath = await repoCloner.clone(
+        owner,
+        repo,
+        branch,
+        process.env.GITHUB_TOKEN || process.env.GH_TOKEN!
+      );
+      console.log('[Strategist] Repository cloned to:', repoPath);
 
       // 1. Get the latest commit diff
       console.log(`[Strategist] Fetching diff for commit ${latestCommit.id}...`);
@@ -98,14 +111,16 @@ export function setupStrategistHandler(
       console.log('[Strategist] Extracting lessons with Gemini...');
       const updatedAgents = await geminiClient.extractLessons(
         agentsContent,
-        mergeDiff
+        mergeDiff,
+        { cwd: repoPath }
       );
 
       // 4. Update TASKS.md
       console.log('[Strategist] Updating TASKS.md with Gemini...');
       const updatedTasks = await geminiClient.updateTasks(
         tasksContent,
-        mergeDiff
+        mergeDiff,
+        { cwd: repoPath }
       );
 
       // 5. Update files in the repository
@@ -144,6 +159,7 @@ export function setupStrategistHandler(
         ),
         geminiClient,
         octokit: context.octokit as any,
+        repoCloner,
         owner,
         repo,
         branch,
@@ -163,6 +179,10 @@ export function setupStrategistHandler(
         }\n\`\`\``,
         labels: ['adl-error'],
       });
+    } finally {
+      if (repoPath) {
+        await repoCloner.cleanup(repoPath);
+      }
     }
   });
 }
