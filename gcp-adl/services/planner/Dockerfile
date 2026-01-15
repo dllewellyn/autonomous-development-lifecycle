@@ -14,6 +14,7 @@ RUN cd /app/shared/state && npm install && npm run build && \
 # Copy service files
 COPY services/planner/package*.json ./
 RUN npm install
+RUN npm install -g @google/gemini-cli
 
 COPY services/planner/tsconfig.json ./
 COPY services/planner/src ./src

@@ -13,6 +13,7 @@ RUN cd /app/shared/state && npm install && npm run build && \
 # Copy service files
 COPY services/strategist/package*.json ./
 RUN npm install
+RUN npm install -g @google/gemini-cli
 
 COPY services/strategist/tsconfig.json ./
 COPY services/strategist/src ./src

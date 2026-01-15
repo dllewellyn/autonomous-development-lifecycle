@@ -477,7 +477,7 @@ Based on typical usage:
 | **Triggering** | Cron + workflow_dispatch | Cloud Scheduler + Pub/Sub |
 | **State** | Committed to repo | Cloud Storage |
 | **Authentication** | GitHub tokens | Service accounts + Secret Manager |
-| **Gemini Integration** | gemini-cli action | Gemini API SDK |
+| **Gemini Integration** | gemini-cli action | gemini-cli (headless) |
 | **Cost** | Free (for public repos) | ~$10-15/month |
 | **Scalability** | Limited by GitHub Actions quotas | Highly scalable |
 | **Monitoring** | GitHub Actions UI | Cloud Logging + Monitoring |

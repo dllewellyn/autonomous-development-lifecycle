@@ -98,7 +98,7 @@ gcp-adl/
 2. **Triggering**: Instead of workflow_dispatch, services communicate via Pub/Sub
 3. **Authentication**: Uses Google Cloud IAM and service accounts
 4. **GitHub Integration**: Uses GitHub App with webhooks instead of GitHub Actions
-5. **Gemini Integration**: Uses Gemini API directly instead of gemini-cli GitHub Action
+5. **Gemini Integration**: Uses gemini-cli directly in the container instead of gemini-cli GitHub Action
 
 ## Prerequisites
 

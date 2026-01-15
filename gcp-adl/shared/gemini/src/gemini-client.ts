@@ -1,16 +1,110 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { spawn } from 'child_process';
 
 /**
  * Gemini Client
- * Wrapper around Google's Generative AI SDK for ADL use cases
+ * Wrapper around Gemini CLI for ADL use cases
  */
 export class GeminiClient {
-  private genAI: GoogleGenerativeAI;
+  private apiKey: string;
   private model: string;
+  private cliPath: string;
 
   constructor(apiKey: string, model: string = 'gemini-2.0-flash-exp') {
-    this.genAI = new GoogleGenerativeAI(apiKey);
+    this.apiKey = apiKey;
     this.model = model;
+    // In Docker/Node environment, binary from dependencies is usually in path
+    // or we can use npx. We'll try direct invocation assuming global install or path setup
+    this.cliPath = 'gemini'; 
+  }
+
+  /**
+   * Execute the Gemini CLI with a prompt
+   */
+  private async runCli(prompt: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      // Calling `gemini prompt` and piping content to stdin
+      // This assumes the CLI accepts stdin for the prompt
+      const args = ['prompt']; 
+      
+      const child = spawn(this.cliPath, args, {
+        env: {
+          ...process.env,
+          GEMINI_API_KEY: this.apiKey,
+        },
+      });
+
+      let stdout = '';
+      let stderr = '';
+
+      child.stdout.on('data', (data) => {
+        stdout += data.toString();
+      });
+
+      child.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+
+      child.on('error', (error) => {
+        // Fallback to npx if direct binary fails
+        if ((error as any).code === 'ENOENT') {
+             console.log('gemini binary not found, trying npx...');
+             this.runCliNpx(prompt).then(resolve).catch(reject);
+             return;
+        }
+        reject(new Error(`Failed to spawn gemini CLI: ${error.message}`));
+      });
+
+      child.on('close', (code) => {
+        if (code !== 0) {
+          reject(new Error(`Gemini CLI exited with code ${code}: ${stderr}`));
+        } else {
+          resolve(stdout.trim());
+        }
+      });
+
+      // Write prompt to stdin
+      child.stdin.write(prompt);
+      child.stdin.end();
+    });
+  }
+
+  private async runCliNpx(prompt: string): Promise<string> {
+      return new Promise((resolve, reject) => {
+        const args = ['@google/gemini-cli', 'prompt'];
+        
+        const child = spawn('npx', args, {
+            env: {
+            ...process.env,
+            GEMINI_API_KEY: this.apiKey,
+            },
+        });
+
+        let stdout = '';
+        let stderr = '';
+
+        child.stdout.on('data', (data) => {
+            stdout += data.toString();
+        });
+
+        child.stderr.on('data', (data) => {
+            stderr += data.toString();
+        });
+
+        child.on('error', (error) => {
+            reject(new Error(`Failed to spawn npx gemini: ${error.message}`));
+        });
+
+        child.on('close', (code) => {
+            if (code !== 0) {
+            reject(new Error(`Gemini CLI (npx) exited with code ${code}: ${stderr}`));
+            } else {
+            resolve(stdout.trim());
+            }
+        });
+
+        child.stdin.write(prompt);
+        child.stdin.end();
+      });
   }
 
   /**
@@ -18,12 +112,9 @@ export class GeminiClient {
    */
   async generateContent(prompt: string): Promise<string> {
     try {
-      const model = this.genAI.getGenerativeModel({ model: this.model });
-      const result = await model.generateContent(prompt);
-      const response = result.response;
-      return response.text();
+      return await this.runCli(prompt);
     } catch (error) {
-      console.error('Error generating content with Gemini:', error);
+      console.error('Error generating content with Gemini CLI:', error);
       throw new Error(`Failed to generate content: ${error}`);
     }
   }
@@ -37,7 +128,11 @@ export class GeminiClient {
     files: Array<{ path: string; content: string }>
   ): Promise<string> {
     const fileContext = files
-      .map(f => `\n### File: ${f.path}\n\`\`\`\n${f.content}\n\`\`\``)
+      .map(f => `
+### File: ${f.path}\n\
+```\
+${f.content}\n```
+`)
       .join('\n');
 
     const fullPrompt = `${systemPrompt}\n\n## Repository Files:\n${fileContext}`;
@@ -60,24 +155,24 @@ export class GeminiClient {
 Analyze the following files:
 
 ### GOALS.md
-\`\`\`
-${goalsContent}
-\`\`\`
+\
+```\
+${goalsContent}\n```
 
 ### TASKS.md
-\`\`\`
-${tasksContent}
-\`\`\`
+\
+```\
+${tasksContent}\n```
 
 ### CONTEXT_MAP.md
-\`\`\`
-${contextMapContent}
-\`\`\`
+\
+```\
+${contextMapContent}\n```
 
 ### AGENTS.md
-\`\`\`
-${agentsContent}
-\`\`\`
+\
+```\
+${agentsContent}\n```
 
 Generate a detailed technical plan for the next task to work on.
 The plan should:
@@ -106,19 +201,19 @@ Output the plan in markdown format.`;
 Your task is to review the code changes in this pull request against the repository's CONSTITUTION.md and ensure the intended task has been completed correctly as per TASKS.md.
 
 ### CONSTITUTION.md
-\`\`\`
-${constitutionContent}
-\`\`\`
+\
+```\
+${constitutionContent}\n```
 
 ### TASKS.md
-\`\`\`
-${tasksContent}
-\`\`\`
+\
+```\
+${tasksContent}\n```
 
 ### PR Diff
-\`\`\`
-${prDiff}
-\`\`\`
+\
+```\
+${prDiff}\n```
 
 Please:
 1. Verify that the changes comply with ALL rules in CONSTITUTION.md.
@@ -138,6 +233,8 @@ Respond in JSON format:
     // Try to extract JSON from the response
     const jsonMatch = response.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
+      // Fallback: If no JSON found, assume non-compliant if text suggests it
+      console.warn('No JSON found in response, attempting loose parse or fail');
       throw new Error('Failed to parse audit response as JSON');
     }
 
@@ -157,14 +254,14 @@ Respond in JSON format:
 A PR has just been merged to main. Analyze the changes and extract lessons learned.
 
 ### Current AGENTS.md
-\`\`\`
-${currentAgentsContent}
-\`\`\`
+\
+```\
+${currentAgentsContent}\n```
 
 ### Merged Changes
-\`\`\`
-${mergeDiff}
-\`\`\`
+\
+```\
+${mergeDiff}\n```
 
 Review the merged changes for patterns, challenges, or insights.
 Update AGENTS.md with new lessons learned.
@@ -173,7 +270,9 @@ Format as a new entry with today's date.
 IMPORTANT:
 - If no new lessons are found, output the original content of AGENTS.md exactly as is.
 - Output ONLY the raw content of the updated file.
-- Do NOT use markdown code blocks (\`\`\`).
+- Do NOT use markdown code blocks (\
+```\
+).
 - Do NOT include any conversational text.
 - The output must start directly with the file content.`;
 
@@ -198,18 +297,20 @@ A task has been completed and merged. Update TASKS.md by:
 5. Re-ordering the tasks list based on priority.
 
 ### Current TASKS.md
-\`\`\`
-${currentTasksContent}
-\`\`\`
+\
+```\
+${currentTasksContent}\n```
 
 ### Merged Changes
-\`\`\`
-${mergeDiff}
-\`\`\`
+\
+```\
+${mergeDiff}\n```
 
 IMPORTANT:
 - Output ONLY the raw content of the updated file.
-- Do NOT use markdown code blocks (\`\`\`).
+- Do NOT use markdown code blocks (\
+```\
+).
 - Do NOT include any conversational text.
 - The output must start directly with the file content.`;
 
