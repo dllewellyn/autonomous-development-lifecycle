@@ -55,7 +55,11 @@ export class GeminiClient {
         env.REPO_PATH = repoPath;
       }
 
-      const child = this.spawnChild(this.cliPath, args, { env });
+      // Run Gemini CLI in the cloned repo directory if provided
+      const child = this.spawnChild(this.cliPath, args, { 
+        env,
+        cwd: repoPath || undefined,
+      });
 
       let stdout = '';
       let stderr = '';

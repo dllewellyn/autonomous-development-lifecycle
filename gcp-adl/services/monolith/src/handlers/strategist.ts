@@ -51,12 +51,15 @@ export function setupStrategistHandler(
       const geminiClient = new GeminiClient(process.env.GEMINI_API_KEY!);
       const stateManager = new StateManager(process.env.STATE_BUCKET!);
 
+      // Get installation token
+      const { token } = await context.octokit.auth({ type: 'installation' }) as any;
+
       // 0. Clone repository
       repoPath = await repoCloner.clone(
         owner,
         repo,
         branch,
-        process.env.GITHUB_TOKEN || process.env.GH_TOKEN!
+        token
       );
       console.log('[Strategist] Repository cloned to:', repoPath);
 
@@ -163,6 +166,7 @@ export function setupStrategistHandler(
         owner,
         repo,
         branch,
+        githubToken: token,
       });
 
       console.log('[Strategist] Completed successfully');

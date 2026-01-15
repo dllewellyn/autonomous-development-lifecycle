@@ -45,12 +45,19 @@ export interface CreateSessionRequest {
 }
 
 /**
- * Jules Message
+ * Jules Message (Legacy - unused now but keeping for reference if needed)
  */
 export interface JulesMessage {
   message: {
     content: string;
   };
+}
+
+/**
+ * Send Message Request
+ */
+export interface SendMessageRequest {
+  prompt: string;
 }
 
 /**

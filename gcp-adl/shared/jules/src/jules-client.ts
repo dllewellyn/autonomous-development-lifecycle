@@ -4,6 +4,7 @@ import {
   JulesSessionsResponse,
   CreateSessionRequest,
   JulesMessage,
+  SendMessageRequest,
   JulesStatusSummary,
   JulesStatus,
 } from './types';
@@ -97,18 +98,45 @@ export class JulesClient {
   /**
    * Send a message to a Jules session
    */
+  /**
+   * Send a message to a Jules session
+   */
   async sendMessage(sessionId: string, content: string): Promise<void> {
     try {
-      const message: JulesMessage = {
-        message: { content },
+      const message: SendMessageRequest = {
+        prompt: content,
       };
 
       await this.client.post(`/sessions/${sessionId}:sendMessage`, message);
 
       console.log(`Sent message to Jules session: ${sessionId}`);
-    } catch (error) {
-      console.error('Error sending message to Jules:', error);
-      throw new Error(`Failed to send message: ${error}`);
+    } catch (error: any) {
+      console.error('Error sending message to Jules:', error.message);
+      
+      if (error.response && error.response.status === 404) {
+        throw new Error(`Session ${sessionId} not found (404). It may have been deleted.`);
+      }
+      
+      throw new Error(`Failed to send message: ${error.message}`);
+    }
+  }
+
+  /**
+   * Check if a session exists and is valid
+   */
+  async isSessionValid(sessionId: string): Promise<boolean> {
+    try {
+      await this.client.get(`/sessions/${sessionId}`);
+      return true;
+    } catch (error: any) {
+      if (error.response && error.response.status === 404) {
+        return false;
+      }
+      // For other errors (network, auth), assume it might be valid but unreachable
+      // or rethrow if we want strict checking. 
+      // For now, logging and returning false for safety if we can't verify.
+      console.warn(`Could not verify session ${sessionId}: ${error.message}`);
+      return false;
     }
   }
 

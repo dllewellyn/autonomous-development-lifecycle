@@ -13,6 +13,7 @@ export interface PlannerContext {
   owner: string;
   repo: string;
   branch: string;
+  githubToken: string;
 }
 
 export interface PlannerResult {
@@ -36,21 +37,31 @@ export async function runPlanner(context: PlannerContext): Promise<PlannerResult
       context.owner,
       context.repo,
       context.branch,
-      process.env.GITHUB_TOKEN || process.env.GH_TOKEN!
+      context.githubToken
     );
     console.log('[Planner] Repository cloned to:', repoPath);
 
     // 1. Check for active session
     const currentState = await context.stateManager.readState();
     if (currentState.current_task_id) {
-      const session = await context.julesClient.getSession(currentState.current_task_id);
-      if (['QUEUED', 'PLANNING', 'IN_PROGRESS'].includes(session.state)) {
-        console.log('[Planner] Active session already exists:', currentState.current_task_id);
-        return {
-          success: true,
-          message: 'Active session already exists',
-          sessionId: currentState.current_task_id,
-        };
+      try {
+        const session = await context.julesClient.getSession(currentState.current_task_id);
+        if (['QUEUED', 'PLANNING', 'IN_PROGRESS'].includes(session.state)) {
+          console.log('[Planner] Active session already exists:', currentState.current_task_id);
+          return {
+            success: true,
+            message: 'Active session already exists',
+            sessionId: currentState.current_task_id,
+          };
+        }
+      } catch (error: any) {
+        // If 404, session is gone. Logs warning and proceeds to create a new one.
+        if (error.message.includes('not found') || error.message.includes('404') || (error.response && error.response.status === 404)) {
+          console.warn(`[Planner] Stale session ID found in state: ${currentState.current_task_id}. Proceeding to create new session.`);
+        } else {
+          // Real error, rethrow
+          throw error;
+        }
       }
     }
 

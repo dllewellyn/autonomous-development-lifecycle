@@ -101,6 +101,7 @@ export function setupServer(app: Probot, options: any) {
             owner,
             repo,
             branch: githubBranch,
+            githubToken: process.env.GITHUB_TOKEN || process.env.GH_TOKEN!,
           });
         },
         runTroubleshooter: async (sessionId: string, question: string) => {
@@ -154,6 +155,7 @@ export function setupServer(app: Probot, options: any) {
         owner,
         repo,
         branch: githubBranch,
+        githubToken: process.env.GITHUB_TOKEN || process.env.GH_TOKEN!,
       });
 
       res.json({ success: true, result });
@@ -218,6 +220,7 @@ export function setupServer(app: Probot, options: any) {
         owner,
         repo,
         branch: githubBranch,
+        githubToken: process.env.GITHUB_TOKEN || process.env.GH_TOKEN!,
       });
 
       res.json({

@@ -28,12 +28,15 @@ export function setupEnforcerHandler(app: Probot) {
         const stateManager = new StateManager(process.env.STATE_BUCKET!);
         const julesClient = new JulesClient(process.env.JULES_API_KEY!);
 
+        // Get installation token
+        const { token } = await context.octokit.auth({ type: 'installation' }) as any;
+
         // 0. Clone repository (target branch)
         repoPath = await repoCloner.clone(
           owner,
           repo,
           targetBranch,
-          process.env.GITHUB_TOKEN || process.env.GH_TOKEN!
+          token
         );
         console.log('[Enforcer] Repository cloned to:', repoPath);
 
@@ -112,11 +115,47 @@ Please address these issues before merging.`;
           });
 
           // Send feedback to Jules
+          // Send feedback to Jules
           const state = await stateManager.readState();
           if (state.current_task_id) {
             const julesMessage = `Constitution Violation Detected:\n\n${violationsList}\n\nPlease fix these issues immediately.`;
-            await julesClient.sendMessage(state.current_task_id, julesMessage);
-            console.log('[Enforcer] Sent violation feedback to Jules');
+            
+            try {
+              // Try to send to the stored session ID
+              await julesClient.sendMessage(state.current_task_id, julesMessage);
+              console.log('[Enforcer] Sent violation feedback to Jules');
+            } catch (error: any) {
+              console.error(`[Enforcer] Failed to send feedback to session ${state.current_task_id}:`, error.message);
+              
+              if (error.message.includes('not found') || error.message.includes('404')) {
+                console.warn('[Enforcer] Current session invalid. Attempting to recover...');
+                
+                // Fallback: Try to find an active session (simplified logic for now)
+                // In a real scenario, we might query by repo/branch if Jules supports it
+                const status = await julesClient.getStatus();
+                const activeSession = status.sessions.find(s => 
+                  ['IN_PROGRESS', 'AWAITING_USER_FEEDBACK', 'PLANNING'].includes(s.state)
+                );
+
+                if (activeSession) {
+                   console.log(`[Enforcer] Found alternative active session: ${activeSession.name}. Retrying send...`);
+                   try {
+                     // Extract ID from name
+                     const altSessionId = activeSession.name.split('/').pop() || '';
+                     if (altSessionId) {
+                       await julesClient.sendMessage(altSessionId, julesMessage);
+                       // Update state to reflect recovery
+                       await stateManager.updateSessionId(altSessionId);
+                       console.log(`[Enforcer] Recovered and updated state with session ${altSessionId}`);
+                     }
+                   } catch (retryError) {
+                     console.error('[Enforcer] Recovery attempt failed:', retryError);
+                   }
+                } else {
+                  console.error('[Enforcer] No active session found to report violations to.');
+                }
+              }
+            }
           }
 
           console.log('[Enforcer] PR rejected due to violations');
@@ -130,6 +169,24 @@ Please address these issues before merging.`;
             event: 'APPROVE',
             body: '✅ Constitution compliant. LGTM!',
           });
+
+          // Check if PR is a draft and mark as ready if needed
+          if (pull_request.draft) {
+             console.log('[Enforcer] PR is a draft. Marking as ready for review...');
+             try {
+               await context.octokit.graphql(`
+                 mutation($id: ID!) {
+                   markPullRequestReadyForReview(input: {pullRequestId: $id}) {
+                     pullRequest { isDraft }
+                   }
+                 }
+               `, { id: pull_request.node_id });
+               console.log('[Enforcer] Successfully marked PR as ready for review');
+             } catch (error) {
+               console.error('[Enforcer] Failed to mark PR as ready for review:', error);
+               // We try to proceed anyway, but it will likely fail at merge if still draft
+             }
+          }
 
           await context.octokit.pulls.merge({
             owner,
