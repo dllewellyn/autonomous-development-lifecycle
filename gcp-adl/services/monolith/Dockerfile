@@ -13,14 +13,20 @@ RUN cd /app/shared/state && npm install && npm run build && \
 
 # Copy service files
 COPY services/monolith/package*.json ./
-RUN npm install
-RUN npm install -g @google/gemini-cli
+RUN npm ci --only=production
 
 COPY services/monolith/tsconfig.json ./
 COPY services/monolith/src ./src
 
-# Build
+# Build TypeScript
 RUN npm run build
 
-# Run
+# Expose port
+EXPOSE 3000
+
+# Set environment
+ENV NODE_ENV=production
+ENV PORT=3000
+
+# Run with Probot
 CMD ["npm", "start"]
