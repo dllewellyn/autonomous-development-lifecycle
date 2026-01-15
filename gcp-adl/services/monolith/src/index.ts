@@ -5,7 +5,7 @@ import { setupServer } from './server';
  * Main Probot application entry point
  * This function is called by Probot to set up the app
  */
-export default (app: Probot) => {
+export default (app: Probot, options: any) => {
   console.log('Starting ADL Monolith service...');
   console.log('Environment:', {
     nodeEnv: process.env.NODE_ENV,
@@ -15,7 +15,7 @@ export default (app: Probot) => {
     githubRepository: process.env.GITHUB_REPOSITORY || 'not set',
   });
 
-  setupServer(app);
+  setupServer(app, options);
 
   console.log('ADL Monolith service started successfully');
 };

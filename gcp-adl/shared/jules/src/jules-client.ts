@@ -20,7 +20,7 @@ export class JulesClient {
     this.client = axios.create({
       baseURL: this.baseUrl,
       headers: {
-        'X-Goog-Api-Key': apiKey,
+        'x-goog-api-key': apiKey,
         'Content-Type': 'application/json',
       },
     });
@@ -84,8 +84,12 @@ export class JulesClient {
 
       console.log(`Created Jules session: ${sessionId}`);
       return sessionId;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating Jules session:', error);
+      if (error.response) {
+        console.error('Response status:', error.response.status);
+        console.error('Response data:', JSON.stringify(error.response.data, null, 2));
+      }
       throw new Error(`Failed to create session: ${error}`);
     }
   }

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ADL Debug Console</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .section h2 {
+            color: #667eea;
+            font-size: 18px;
+            margin-bottom: 15px;
+        }
+
+        .warning {
+            background: #fff3cd;
+            border-left-color: #ffc107;
+            border: 1px solid #ffc107;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .warning-title {
+            color: #856404;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .warning-text {
+            color: #856404;
+            font-size: 14px;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        button:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .status.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            display: block;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            display: block;
+        }
+
+        .status.loading {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+            display: block;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #0c5460;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .info-list {
+            list-style: none;
+            margin-top: 10px;
+        }
+
+        .info-list li {
+            padding: 8px 0;
+            color: #555;
+            font-size: 14px;
+        }
+
+        .info-list li:before {
+            content: "→ ";
+            color: #667eea;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 ADL Debug Console</h1>
+        <p class="subtitle">Development & Testing Tools</p>
+
+        <div class="warning">
+            <div class="warning-title">⚠️ Warning</div>
+            <div class="warning-text">
+                This action will delete all existing state and force a fresh strategist execution. 
+                Use only for debugging and testing purposes.
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Force Re-trigger Strategist</h2>
+            <p style="color: #666; font-size: 14px; margin-bottom: 15px;">
+                This will:
+            </p>
+            <ul class="info-list">
+                <li>Delete the current Ralph state</li>
+                <li>Reset iteration counter to 0</li>
+                <li>Trigger planner execution</li>
+                <li>Start a fresh ADL cycle</li>
+            </ul>
+            <button id="triggerBtn" onclick="triggerStrategist()">
+                🚀 Force Re-trigger Strategist
+            </button>
+            <div id="status" class="status"></div>
+        </div>
+    </div>
+
+    <script>
+        async function triggerStrategist() {
+            const btn = document.getElementById('triggerBtn');
+            const status = document.getElementById('status');
+            
+            btn.disabled = true;
+            status.className = 'status loading';
+            status.innerHTML = '<span class="spinner"></span>Triggering strategist...';
+
+            try {
+                const response = await fetch('/debug/trigger-strategist', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    status.className = 'status success';
+                    status.innerHTML = `
+                        <strong>✓ Success!</strong><br>
+                        ${data.message || 'Strategist triggered successfully'}
+                        ${data.result ? '<br><pre style="margin-top: 10px; font-size: 12px;">' + JSON.stringify(data.result, null, 2) + '</pre>' : ''}
+                    `;
+                } else {
+                    status.className = 'status error';
+                    status.innerHTML = `
+                        <strong>✗ Error</strong><br>
+                        ${data.error || 'Failed to trigger strategist'}
+                    `;
+                }
+            } catch (error) {
+                status.className = 'status error';
+                status.innerHTML = `
+                    <strong>✗ Error</strong><br>
+                    ${error.message || 'Network error occurred'}
+                `;
+            } finally {
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

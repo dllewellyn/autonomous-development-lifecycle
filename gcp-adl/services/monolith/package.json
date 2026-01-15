@@ -4,7 +4,7 @@
   "description": "Unified GCP ADL Service - Probot-based GitHub App",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && cp -r src/public dist/",
     "start": "probot run ./dist/index.js",
     "dev": "npm run build && probot run ./dist/index.js",
     "test": "jest"

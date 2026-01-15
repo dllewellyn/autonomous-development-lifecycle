@@ -4,29 +4,46 @@ import { spawn } from 'child_process';
  * Gemini Client
  * Wrapper around Gemini CLI for ADL use cases
  */
+export interface GeminiClientOptions {
+  model?: string;
+  fallbackModel?: string;
+}
+
 export class GeminiClient {
   private apiKey: string;
-  private model: string;
   private cliPath: string;
+  private defaultOptions: GeminiClientOptions;
 
-  constructor(apiKey: string, model: string = 'gemini-2.0-flash-exp') {
+  constructor(apiKey: string, options: GeminiClientOptions = {}) {
     this.apiKey = apiKey;
-    this.model = model;
-    // In Docker/Node environment, binary from dependencies is usually in path
-    // or we can use npx. We'll try direct invocation assuming global install or path setup
-    this.cliPath = 'gemini'; 
+    this.apiKey = apiKey;
+    try {
+        // Resolve the local gemini-cli binary path
+        this.cliPath = require.resolve('@google/gemini-cli');
+    } catch (e) {
+        console.warn('Could not resolve @google/gemini-cli, falling back to global "gemini" command');
+        this.cliPath = 'gemini'; 
+    }
+    this.defaultOptions = {
+        fallbackModel: 'gemini-2.5-flash', // Default fallback
+        ...options
+    };
   }
 
   /**
    * Execute the Gemini CLI with a prompt
    */
-  private async runCli(prompt: string): Promise<string> {
+  private async runCli(prompt: string, options: GeminiClientOptions = {}, isRetry: boolean = false): Promise<string> {
     return new Promise((resolve, reject) => {
-      // Calling `gemini prompt` and piping content to stdin
-      // This assumes the CLI accepts stdin for the prompt
-      const args = ['prompt']; 
+      // Calling `gemini` with prompt via stdin, requesting JSON output
+      const args: string[] = ['--output-format', 'json']; 
       
-      const child = spawn(this.cliPath, args, {
+      const model = options.model || this.defaultOptions.model;
+      if (model) {
+        args.push('--model', model);
+      } 
+      
+      const child = this.spawnChild(this.cliPath, args, {
         env: {
           ...process.env,
           GEMINI_API_KEY: this.apiKey,
@@ -36,29 +53,119 @@ export class GeminiClient {
       let stdout = '';
       let stderr = '';
 
-      child.stdout.on('data', (data) => {
+      child.stdout.on('data', (data: Buffer) => {
         stdout += data.toString();
       });
 
-      child.stderr.on('data', (data) => {
+      child.stderr.on('data', (data: Buffer) => {
         stderr += data.toString();
       });
 
-      child.on('error', (error) => {
-        // Fallback to npx if direct binary fails
-        if ((error as any).code === 'ENOENT') {
-             console.log('gemini binary not found, trying npx...');
-             this.runCliNpx(prompt).then(resolve).catch(reject);
-             return;
-        }
+      child.on('error', (error: Error) => {
         reject(new Error(`Failed to spawn gemini CLI: ${error.message}`));
       });
 
-      child.on('close', (code) => {
+      child.on('close', async (code: number) => {
         if (code !== 0) {
-          reject(new Error(`Gemini CLI exited with code ${code}: ${stderr}`));
+          console.log(`[GeminiClient] CLI exited with code ${code}`);
+          console.log(`[GeminiClient] stdout: ${stdout.substring(0, 500)}...`);
+          console.log(`[GeminiClient] stderr: ${stderr.substring(0, 500)}...`);
+
+          // Helper to check for quota error in text
+          const isQuotaError = (text: string) => {
+              const lower = text.toLowerCase();
+              return lower.includes('quota') || 
+                     lower.includes('capacity') || 
+                     lower.includes('429');
+          };
+
+          // If exit code is non-zero, try to see if we got an error JSON or just stderr
+          try {
+            const parsed = JSON.parse(stdout.trim());
+            if (parsed.error) {
+               // Check for quota error
+               const errorMessage = parsed.error.message || '';
+               const quotaMatch = isQuotaError(errorMessage) || parsed.error.code === 429;
+
+               if (quotaMatch && !isRetry) {
+                   const fallbackModel = options.fallbackModel || this.defaultOptions.fallbackModel;
+                   if (fallbackModel && fallbackModel !== model) {
+                       console.warn(`[GeminiClient] Quota exceeded for ${model || 'default model'}. Falling back to ${fallbackModel}.`);
+                       try {
+                            const result = await this.runCli(prompt, { ...options, model: fallbackModel }, true);
+                            resolve(result);
+                            return;
+                       } catch (retryError) {
+                            reject(retryError);
+                            return;
+                       }
+                   }
+               }
+
+              reject(new Error(`Gemini CLI error: ${parsed.error.message} (${parsed.error.type})`));
+              return;
+            }
+          } catch (e) {
+            // Ignore JSON parse error on failure path
+          }
+          
+          // If we are here, we didn't find a JSON error. Check stderr for quota error.
+          if (isQuotaError(stderr) && !isRetry) {
+               const fallbackModel = options.fallbackModel || this.defaultOptions.fallbackModel;
+               if (fallbackModel && fallbackModel !== model) {
+                   console.warn(`[GeminiClient] Quota exceeded (detected in stderr) for ${model || 'default model'}. Falling back to ${fallbackModel}.`);
+                   try {
+                        const result = await this.runCli(prompt, { ...options, model: fallbackModel }, true);
+                        resolve(result);
+                        return;
+                   } catch (retryError) {
+                        reject(retryError);
+                        return;
+                   }
+               }
+          }
+
+          reject(new Error(`Gemini CLI exited with code ${code}. Stderr: ${stderr}`));
         } else {
-          resolve(stdout.trim());
+          try {
+            const parsed = JSON.parse(stdout.trim());
+            
+            if (parsed.error) {
+                // Check for quota error (in case it returns 0 exit code but has error body?)
+               const errorMessage = parsed.error.message || '';
+               const isQuotaError = errorMessage.toLowerCase().includes('quota') || 
+                                    errorMessage.toLowerCase().includes('capacity') ||
+                                    parsed.error.code === 429;
+
+               if (isQuotaError && !isRetry) {
+                   const fallbackModel = options.fallbackModel || this.defaultOptions.fallbackModel;
+                   if (fallbackModel && fallbackModel !== model) {
+                       console.warn(`Quota exceeded for ${model || 'default model'}. Falling back to ${fallbackModel}.`);
+                       try {
+                            const result = await this.runCli(prompt, { ...options, model: fallbackModel }, true);
+                            resolve(result);
+                            return;
+                       } catch (retryError) {
+                            reject(retryError);
+                            return;
+                       }
+                   }
+               }
+               
+               reject(new Error(`Gemini CLI error: ${parsed.error.message} (${parsed.error.type})`));
+               return;
+            }
+
+            if (typeof parsed.response !== 'string') {
+               reject(new Error('Gemini CLI response missing valid "response" field'));
+               return;
+            }
+            
+            resolve(parsed.response);
+          } catch (e) {
+            console.error('Failed to parse JSON output:', stdout);
+            reject(new Error(`Failed to parse Gemini CLI JSON output: ${e}`));
+          }
         }
       });
 
@@ -68,51 +175,14 @@ export class GeminiClient {
     });
   }
 
-  private async runCliNpx(prompt: string): Promise<string> {
-      return new Promise((resolve, reject) => {
-        const args = ['@google/gemini-cli', 'prompt'];
-        
-        const child = spawn('npx', args, {
-            env: {
-            ...process.env,
-            GEMINI_API_KEY: this.apiKey,
-            },
-        });
 
-        let stdout = '';
-        let stderr = '';
-
-        child.stdout.on('data', (data) => {
-            stdout += data.toString();
-        });
-
-        child.stderr.on('data', (data) => {
-            stderr += data.toString();
-        });
-
-        child.on('error', (error) => {
-            reject(new Error(`Failed to spawn npx gemini: ${error.message}`));
-        });
-
-        child.on('close', (code) => {
-            if (code !== 0) {
-            reject(new Error(`Gemini CLI (npx) exited with code ${code}: ${stderr}`));
-            } else {
-            resolve(stdout.trim());
-            }
-        });
-
-        child.stdin.write(prompt);
-        child.stdin.end();
-      });
-  }
 
   /**
    * Generate content from a prompt
    */
-  async generateContent(prompt: string): Promise<string> {
+  async generateContent(prompt: string, options?: GeminiClientOptions): Promise<string> {
     try {
-      return await this.runCli(prompt);
+      return await this.runCli(prompt, options);
     } catch (error) {
       console.error('Error generating content with Gemini CLI:', error);
       throw new Error(`Failed to generate content: ${error}`);
@@ -125,7 +195,8 @@ export class GeminiClient {
    */
   async generateWithContext(
     systemPrompt: string,
-    files: Array<{ path: string; content: string }>
+    files: Array<{ path: string; content: string }>,
+    options?: GeminiClientOptions
   ): Promise<string> {
     const fileContext = files
       .map(f => `
@@ -138,7 +209,7 @@ ${f.content}
 
     const fullPrompt = `${systemPrompt}\n\n## Repository Files:\n${fileContext}`;
 
-    return this.generateContent(fullPrompt);
+    return this.generateContent(fullPrompt, options);
   }
 
   /**
@@ -149,7 +220,8 @@ ${f.content}
     goalsContent: string,
     tasksContent: string,
     contextMapContent: string,
-    agentsContent: string
+    agentsContent: string,
+    options?: GeminiClientOptions
   ): Promise<string> {
     const prompt = `You are the Planner for an autonomous development system.
 
@@ -195,9 +267,11 @@ Output the plan in markdown format.`;
   async auditPR(
     constitutionContent: string,
     tasksContent: string,
-    prDiff: string
+    prDiff: string,
+    options?: GeminiClientOptions
   ): Promise<{ compliant: boolean; violations: string[] }> {
     const prompt = `You are the Enforcer for an autonomous development system.
+
 
 Your task is to review the code changes in this pull request against the repository's CONSTITUTION.md and ensure the intended task has been completed correctly as per TASKS.md.
 
@@ -229,7 +303,7 @@ Respond in JSON format:
   "violations": ["reason/violation 1", "reason/violation 2", ...]
 }`;
 
-    const response = await this.generateContent(prompt);
+    const response = await this.generateContent(prompt, options);
     
     // Try to extract JSON from the response
     const jsonMatch = response.match(/\{[\s\S]*\}/);
@@ -248,7 +322,8 @@ Respond in JSON format:
    */
   async extractLessons(
     currentAgentsContent: string,
-    mergeDiff: string
+    mergeDiff: string,
+    options?: GeminiClientOptions
   ): Promise<string> {
     const prompt = `You are the Strategist for an autonomous development system.
 
@@ -275,7 +350,7 @@ IMPORTANT:
 - Do NOT include any conversational text.
 - The output must start directly with the file content.`;
 
-    return this.generateContent(prompt);
+    return this.generateContent(prompt, options);
   }
 
   /**
@@ -284,7 +359,8 @@ IMPORTANT:
    */
   async updateTasks(
     currentTasksContent: string,
-    mergeDiff: string
+    mergeDiff: string,
+    options?: GeminiClientOptions
   ): Promise<string> {
     const prompt = `You are the Strategist for an autonomous development system.
 
@@ -311,6 +387,16 @@ IMPORTANT:
 - Do NOT include any conversational text.
 - The output must start directly with the file content.`;
 
-    return this.generateContent(prompt);
+    return this.generateContent(prompt, options);
+  }
+  
+  /**
+   * Protected method to spawn child process, enabling mocking in tests
+   */
+  protected spawnChild(command: string, args: string[], options: any): any {
+    if (command.endsWith('.js')) {
+        return spawn(process.execPath, [command, ...args], options);
+    }
+    return spawn(command, args, options);
   }
 }

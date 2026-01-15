@@ -94,6 +94,15 @@ export class StateManager {
   }
 
   /**
+   * Reset state completely to default (deletes session)
+   */
+  async resetState(): Promise<void> {
+    console.log('[StateManager] Resetting state to default...');
+    await this.writeState({ ...DEFAULT_STATE });
+    console.log('[StateManager] State reset complete');
+  }
+
+  /**
    * Update session ID
    */
   async updateSessionId(sessionId: string): Promise<void> {
