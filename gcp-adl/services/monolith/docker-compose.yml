@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  monolith:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      # Add other environment variables as needed for local development
+    volumes:
+      - .:/app # Mount the current service directory to /app
+      - ../../shared:/app/shared # Mount the shared libraries directory to /app/shared
+      # Anonymous volumes to prevent host node_modules from overwriting container's
+      - /app/node_modules
+      - /app/shared/state/node_modules
+      - /app/shared/jules/node_modules
+      - /app/shared/gemini/node_modules
+      - /app/shared/github/node_modules
+    command: npm run dev # Assuming 'npm run dev' watches for changes and restarts
+    # Or, if 'npm run dev' doesn't watch, use a tool like nodemon inside the container
+    # command: sh -c "npm install && npm run dev" # Example for a full build inside container if not watching
