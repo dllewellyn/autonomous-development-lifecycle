@@ -12,13 +12,31 @@ export function setupStrategistHandler(
 ) {
   app.on('push', async (context: Context<'push'>) => {
     const { repository, ref, commits } = context.payload;
-    const owner = repository.owner.login || repository.owner.name;
+    const owner = repository.owner.login || repository.owner.name || '';
     const repo = repository.name;
     const branch = process.env.GITHUB_BRANCH || 'main';
+    
+    console.log(`[Strategist] Processing push to ${branch} in ${owner}/${repo}`);
+    
+    if (!owner) {
+      console.error('[Strategist] Unable to determine repository owner');
+      return;
+    }
 
     // Only process pushes to main branch
     if (ref !== `refs/heads/${branch}`) {
       console.log(`[Strategist] Ignoring push to ${ref}`);
+      return;
+    }
+
+    // Skip pushes made by the strategist itself to avoid infinite loops
+    const latestCommit = commits[commits.length - 1];
+    const commitMessage = latestCommit.message;
+    if (
+      commitMessage.includes('chore: update agent memory after merge') ||
+      commitMessage.includes('chore: update tasks after merge')
+    ) {
+      console.log(`[Strategist] Ignoring push from strategist itself: ${commitMessage}`);
       return;
     }
 
@@ -30,7 +48,6 @@ export function setupStrategistHandler(
       const stateManager = new StateManager(process.env.STATE_BUCKET!);
 
       // 1. Get the latest commit diff
-      const latestCommit = commits[commits.length - 1];
       console.log(`[Strategist] Fetching diff for commit ${latestCommit.id}...`);
 
       const commitData = await context.octokit.repos.getCommit({
@@ -126,7 +143,7 @@ export function setupStrategistHandler(
           process.env.JULES_API_KEY!
         ),
         geminiClient,
-        octokit: context.octokit,
+        octokit: context.octokit as any,
         owner,
         repo,
         branch,

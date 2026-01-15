@@ -9,7 +9,7 @@ import { GeminiClient } from '@gcp-adl/gemini';
 export function setupEnforcerHandler(app: Probot) {
   app.on(
     ['pull_request.opened', 'pull_request.synchronize', 'pull_request.reopened'],
-    async (context: Context<'pull_request.opened'>) => {
+    async (context: Context<'pull_request.opened' | 'pull_request.synchronize' | 'pull_request.reopened'>) => {
       const { pull_request, repository } = context.payload;
       const owner = repository.owner.login;
       const repo = repository.name;
@@ -78,7 +78,7 @@ export function setupEnforcerHandler(app: Probot) {
           console.log('[Enforcer] Violations found. Posting violations...');
 
           const violationsList = auditResult.violations
-            .map((v, i) => `${i + 1}. ${v}`)
+            .map((v: string, i: number) => `${i + 1}. ${v}`)
             .join('\n');
 
           const comment = `## 🚨 Constitution Violation Detected

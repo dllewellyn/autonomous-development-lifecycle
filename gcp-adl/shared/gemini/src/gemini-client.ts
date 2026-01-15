@@ -129,9 +129,10 @@ export class GeminiClient {
   ): Promise<string> {
     const fileContext = files
       .map(f => `
-### File: ${f.path}\n\
-```\
-${f.content}\n```
+### File: ${f.path}
+\`\`\`
+${f.content}
+\`\`\`
 `)
       .join('\n');
 
@@ -155,24 +156,24 @@ ${f.content}\n```
 Analyze the following files:
 
 ### GOALS.md
-\
-```\
-${goalsContent}\n```
+\`\`\`
+${goalsContent}
+\`\`\`
 
 ### TASKS.md
-\
-```\
-${tasksContent}\n```
+\`\`\`
+${tasksContent}
+\`\`\`
 
 ### CONTEXT_MAP.md
-\
-```\
-${contextMapContent}\n```
+\`\`\`
+${contextMapContent}
+\`\`\`
 
 ### AGENTS.md
-\
-```\
-${agentsContent}\n```
+\`\`\`
+${agentsContent}
+\`\`\`
 
 Generate a detailed technical plan for the next task to work on.
 The plan should:
@@ -201,19 +202,19 @@ Output the plan in markdown format.`;
 Your task is to review the code changes in this pull request against the repository's CONSTITUTION.md and ensure the intended task has been completed correctly as per TASKS.md.
 
 ### CONSTITUTION.md
-\
-```\
-${constitutionContent}\n```
+\`\`\`
+${constitutionContent}
+\`\`\`
 
 ### TASKS.md
-\
-```\
-${tasksContent}\n```
+\`\`\`
+${tasksContent}
+\`\`\`
 
 ### PR Diff
-\
-```\
-${prDiff}\n```
+\`\`\`
+${prDiff}
+\`\`\`
 
 Please:
 1. Verify that the changes comply with ALL rules in CONSTITUTION.md.
@@ -254,14 +255,14 @@ Respond in JSON format:
 A PR has just been merged to main. Analyze the changes and extract lessons learned.
 
 ### Current AGENTS.md
-\
-```\
-${currentAgentsContent}\n```
+\`\`\`
+${currentAgentsContent}
+\`\`\`
 
 ### Merged Changes
-\
-```\
-${mergeDiff}\n```
+\`\`\`
+${mergeDiff}
+\`\`\`
 
 Review the merged changes for patterns, challenges, or insights.
 Update AGENTS.md with new lessons learned.
@@ -270,9 +271,7 @@ Format as a new entry with today's date.
 IMPORTANT:
 - If no new lessons are found, output the original content of AGENTS.md exactly as is.
 - Output ONLY the raw content of the updated file.
-- Do NOT use markdown code blocks (\
-```\
-).
+- Do NOT use markdown code blocks.
 - Do NOT include any conversational text.
 - The output must start directly with the file content.`;
 
@@ -297,20 +296,18 @@ A task has been completed and merged. Update TASKS.md by:
 5. Re-ordering the tasks list based on priority.
 
 ### Current TASKS.md
-\
-```\
-${currentTasksContent}\n```
+\`\`\`
+${currentTasksContent}
+\`\`\`
 
 ### Merged Changes
-\
-```\
-${mergeDiff}\n```
+\`\`\`
+${mergeDiff}
+\`\`\`
 
 IMPORTANT:
 - Output ONLY the raw content of the updated file.
-- Do NOT use markdown code blocks (\
-```\
-).
+- Do NOT use markdown code blocks.
 - Do NOT include any conversational text.
 - The output must start directly with the file content.`;
 

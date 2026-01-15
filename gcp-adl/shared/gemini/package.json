@@ -10,7 +10,7 @@
     "lint": "eslint src/**/*.ts"
   },
   "dependencies": {
-    "@google/gemini-cli": "^1.0.0"
+    "@google/generative-ai": "^0.1.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

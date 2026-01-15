@@ -7,20 +7,27 @@ import { setupStrategistHandler } from './handlers/strategist';
 import { runHeartbeat } from './services/heartbeat';
 import { runPlanner } from './services/planner';
 import { runTroubleshooter } from './services/troubleshooter';
+import { Request, Response } from 'express';
 
 /**
  * Setup server with Probot handlers and custom routes
  */
 export function setupServer(app: Probot) {
-  const router = app.route();
+  const router = (app as any).route ? (app as any).route() : undefined;
+  
+  if (!router) {
+    console.warn('[Server] app.route() not available, skipping custom routes');
+  }
 
   // Setup Probot webhook handlers
   console.log('[Server] Setting up Probot handlers...');
   setupEnforcerHandler(app);
   setupStrategistHandler(app, runPlanner);
 
+  if (!router) return;
+
   // Health check endpoint
-  router.get('/health', (req, res) => {
+  router.get('/health', (req: Request, res: Response) => {
     res.json({
       status: 'healthy',
       service: 'adl-monolith',
@@ -29,7 +36,7 @@ export function setupServer(app: Probot) {
   });
 
   // Heartbeat endpoint (triggered by Cloud Scheduler)
-  router.post('/heartbeat', async (req, res) => {
+  router.post('/heartbeat', async (req: Request, res: Response) => {
     console.log('[Server] Heartbeat triggered');
 
     try {
@@ -100,7 +107,7 @@ export function setupServer(app: Probot) {
   });
 
   // Manual planner trigger (for testing)
-  router.post('/trigger/planner', async (req, res) => {
+  router.post('/trigger/planner', async (req: Request, res: Response) => {
     console.log('[Server] Manual planner trigger');
 
     try {
