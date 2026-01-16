@@ -40,6 +40,32 @@ export function setupEnforcerHandler(app: Probot) {
         );
         console.log('[Enforcer] Repository cloned to:', repoPath);
 
+        // Check for broken workflows
+        const sha = pull_request.head.sha;
+        console.log(`[Enforcer] Checking workflow status for commit ${sha}...`);
+        
+        const { data: { workflow_runs } } = await context.octokit.actions.listWorkflowRunsForRepo({
+          owner,
+          repo,
+          head_sha: sha,
+        });
+
+        // Filter for broken workflows (failure or timed_out)
+        const brokenWorkflows = workflow_runs
+          .filter(run => ['failure', 'timed_out'].includes(run.conclusion || ''))
+          .map(run => run.name);
+
+        if (brokenWorkflows.length > 0) {
+           console.log('[Enforcer] Broken workflows detected:', brokenWorkflows);
+           
+           const uniqueWorkflows = [...new Set(brokenWorkflows)];
+           const message = `The following workflows have failed for commit ${sha}:\n\n${uniqueWorkflows.map(w => `- ${w}`).join('\n')}\n\nPlease fix these issues before proceeding.`;
+           
+           await notifyJules(stateManager, julesClient, message);
+           console.log('[Enforcer] Notified Jules about broken workflows. Aborting constitution check.');
+           return;
+        }
+
         // 1. Fetch CONSTITUTION.md and TASKS.md
         console.log('[Enforcer] Fetching repository files...');
         const [constitutionRes, tasksRes] = await Promise.all([
@@ -115,48 +141,8 @@ Please address these issues before merging.`;
           });
 
           // Send feedback to Jules
-          // Send feedback to Jules
-          const state = await stateManager.readState();
-          if (state.current_task_id) {
-            const julesMessage = `Constitution Violation Detected:\n\n${violationsList}\n\nPlease fix these issues immediately.`;
-            
-            try {
-              // Try to send to the stored session ID
-              await julesClient.sendMessage(state.current_task_id, julesMessage);
-              console.log('[Enforcer] Sent violation feedback to Jules');
-            } catch (error: any) {
-              console.error(`[Enforcer] Failed to send feedback to session ${state.current_task_id}:`, error.message);
-              
-              if (error.message.includes('not found') || error.message.includes('404')) {
-                console.warn('[Enforcer] Current session invalid. Attempting to recover...');
-                
-                // Fallback: Try to find an active session (simplified logic for now)
-                // In a real scenario, we might query by repo/branch if Jules supports it
-                const status = await julesClient.getStatus();
-                const activeSession = status.sessions.find(s => 
-                  ['IN_PROGRESS', 'AWAITING_USER_FEEDBACK', 'PLANNING'].includes(s.state)
-                );
-
-                if (activeSession) {
-                   console.log(`[Enforcer] Found alternative active session: ${activeSession.name}. Retrying send...`);
-                   try {
-                     // Extract ID from name
-                     const altSessionId = activeSession.name.split('/').pop() || '';
-                     if (altSessionId) {
-                       await julesClient.sendMessage(altSessionId, julesMessage);
-                       // Update state to reflect recovery
-                       await stateManager.updateSessionId(altSessionId);
-                       console.log(`[Enforcer] Recovered and updated state with session ${altSessionId}`);
-                     }
-                   } catch (retryError) {
-                     console.error('[Enforcer] Recovery attempt failed:', retryError);
-                   }
-                } else {
-                  console.error('[Enforcer] No active session found to report violations to.');
-                }
-              }
-            }
-          }
+          const julesMessage = `Constitution Violation Detected:\n\n${violationsList}\n\nPlease fix these issues immediately.`;
+          await notifyJules(stateManager, julesClient, julesMessage);
 
           console.log('[Enforcer] PR rejected due to violations');
         } else {
@@ -214,4 +200,47 @@ Please address these issues before merging.`;
       }
     }
   );
+}
+
+async function notifyJules(stateManager: StateManager, julesClient: JulesClient, message: string) {
+  const state = await stateManager.readState();
+  if (state.current_task_id) {
+    try {
+      // Try to send to the stored session ID
+      await julesClient.sendMessage(state.current_task_id, message);
+      console.log('[Enforcer] Sent feedback to Jules');
+    } catch (error: any) {
+      console.error(`[Enforcer] Failed to send feedback to session ${state.current_task_id}:`, error.message);
+      
+      if (error.message.includes('not found') || error.message.includes('404')) {
+        console.warn('[Enforcer] Current session invalid. Attempting to recover...');
+        
+        // Fallback: Try to find an active session (simplified logic for now)
+        const status = await julesClient.getStatus();
+        const activeSession = status.sessions.find(s => 
+          ['IN_PROGRESS', 'AWAITING_USER_FEEDBACK', 'PLANNING'].includes(s.state)
+        );
+
+        if (activeSession) {
+           console.log(`[Enforcer] Found alternative active session: ${activeSession.name}. Retrying send...`);
+           try {
+             // Extract ID from name
+             const altSessionId = activeSession.name.split('/').pop() || '';
+             if (altSessionId) {
+               await julesClient.sendMessage(altSessionId, message);
+               // Update state to reflect recovery
+               await stateManager.updateSessionId(altSessionId);
+               console.log(`[Enforcer] Recovered and updated state with session ${altSessionId}`);
+             }
+           } catch (retryError) {
+             console.error('[Enforcer] Recovery attempt failed:', retryError);
+           }
+        } else {
+          console.error('[Enforcer] No active session found to report violations to.');
+        }
+      }
+    }
+  } else {
+    console.log('[Enforcer] No active session found (current_task_id is null). Cannot notify Jules.');
+  }
 }
