@@ -318,13 +318,53 @@ Respond in JSON format:
     
     // Try to extract JSON from the response
     const jsonMatch = response.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      // Fallback: If no JSON found, assume non-compliant if text suggests it
-      console.warn('No JSON found in response, attempting loose parse or fail');
-      throw new Error('Failed to parse audit response as JSON');
+    
+    if (jsonMatch) {
+      try {
+        // Try parsing the matched content
+        // If there's multiple blocks, we want to find the one that validates
+        // For now, let's just try matching the largest block
+        return JSON.parse(jsonMatch[0]);
+      } catch (parseError) {
+        console.warn('Found JSON-like match but failed to parse:', parseError);
+        console.warn('Matched text:', jsonMatch[0]);
+      }
     }
 
-    return JSON.parse(jsonMatch[0]);
+    // Fallback: Attempt loose parsing if regex/JSON.parse failed
+    console.warn('Attempting loose parse of Gemini response...');
+    const lower = response.toLowerCase();
+    
+    const compliant = lower.includes('"compliant": true') || 
+                      lower.includes('compliant: true') ||
+                      (lower.includes('is compliant') && !lower.includes('not compliant'));
+
+    const violations: string[] = [];
+    
+    // Look for violations in a list format
+    const lines = response.split('\n');
+    let inViolations = false;
+    for (const line of lines) {
+      if (line.toLowerCase().includes('violations')) {
+        inViolations = true;
+        continue;
+      }
+      if (inViolations && (line.trim().startsWith('-') || line.trim().startsWith('*') || /^\d+\./.test(line.trim()))) {
+        violations.push(line.replace(/^[-*\d.]+\s*/, '').trim());
+      }
+    }
+
+    // Only return if we found some indicator of compliance
+    if (lower.includes('compliant') || violations.length > 0) {
+      return {
+        compliant,
+        violations: violations.length > 0 ? violations : (compliant ? [] : ['PR found non-compliant by loose parsing but no specific violations listed.'])
+      };
+    }
+
+    console.error('Failed to parse or loosely infer audit result.');
+    console.error('Raw Gemini Response:', response);
+    throw new Error('Failed to parse audit response as JSON');
   }
 
   /**
