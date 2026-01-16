@@ -1,0 +1,11 @@
+{
+  "name": "gcp-adl",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build:shared": "npm --prefix shared/state install && npm --prefix shared/state run build && npm --prefix shared/jules install && npm --prefix shared/jules run build && npm --prefix shared/gemini install && npm --prefix shared/gemini run build && npm --prefix shared/github install && npm --prefix shared/github run build",
+    "build": "npm run build:shared && npm --prefix services/monolith install && npm --prefix services/monolith run build",
+    "start": "npm --prefix services/monolith run start",
+    "dev": "npm --prefix services/monolith run dev"
+  }
+}
