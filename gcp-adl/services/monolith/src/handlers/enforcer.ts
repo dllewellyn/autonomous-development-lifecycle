@@ -8,6 +8,7 @@ import { RepoCloner } from '../utils/repo-cloner';
  * Enforcer Handler - Reviews PRs against CONSTITUTION.md
  */
 export function setupEnforcerHandler(app: Probot) {
+  // Handler for PR events
   app.on(
     ['pull_request.opened', 'pull_request.synchronize', 'pull_request.reopened'],
     async (context: Context<'pull_request.opened' | 'pull_request.synchronize' | 'pull_request.reopened'>) => {
@@ -16,197 +17,284 @@ export function setupEnforcerHandler(app: Probot) {
       const repo = repository.name;
       const prNumber = pull_request.number;
       const targetBranch = pull_request.base.ref;
+      const headSha = pull_request.head.sha;
 
-      console.log(`[Enforcer] Processing PR #${prNumber} in ${owner}/${repo} (target: ${targetBranch})`);
+      console.log(`[Enforcer] Processing PR #${prNumber} in ${owner}/${repo} (target: ${targetBranch}, sha: ${headSha})`);
 
-      let repoPath: string | undefined;
-      const repoCloner = new RepoCloner();
+      await handlePrEnforcement(context, owner, repo, prNumber, targetBranch, headSha, pull_request.node_id, pull_request.draft);
+    }
+  );
 
-      try {
-        // Initialize clients
-        const geminiClient = new GeminiClient(process.env.GEMINI_API_KEY!);
-        const stateManager = new StateManager(process.env.STATE_BUCKET!);
-        const julesClient = new JulesClient(process.env.JULES_API_KEY!);
+  // Handler for workflow run completion (to catch up when workflows finish)
+  app.on('workflow_run.completed', async (context: Context<'workflow_run.completed'>) => {
+    const { workflow_run, repository } = context.payload;
+    const owner = repository.owner.login;
+    const repo = repository.name;
+    const headSha = workflow_run.head_sha;
 
-        // Get installation token
-        const { token } = await context.octokit.auth({ type: 'installation' }) as any;
+    // We need to find the PR associated with this run/commit
+    // The payload usually contains pull_requests info
+    const prs = workflow_run.pull_requests;
 
-        // 0. Clone repository (target branch)
-        repoPath = await repoCloner.clone(
+    if (!prs || prs.length === 0) {
+      // If no PRs in payload, try to search for PRs associated with this commit
+       console.log(`[Enforcer] No PRs found in workflow_run payload for ${headSha}. Checking via API...`);
+       const { data: associatedPrs } = await context.octokit.repos.listPullRequestsAssociatedWithCommit({
+         owner,
+         repo,
+         commit_sha: headSha,
+       });
+       
+       if (associatedPrs.length === 0) {
+         console.log(`[Enforcer] No PRs associated with commit ${headSha}. Skipping.`);
+         return;
+       }
+       
+       for (const pr of associatedPrs) {
+         console.log(`[Enforcer] Found PR #${pr.number} for workflow run ${workflow_run.id}`);
+         // We re-fetch the PR to get full details (like node_id, draft status)
+         const { data: fullPr } = await context.octokit.pulls.get({
+            owner,
+            repo,
+            pull_number: pr.number
+         });
+         
+         await handlePrEnforcement(
+           context, 
+           owner, 
+           repo, 
+           fullPr.number, 
+           fullPr.base.ref, 
+           headSha, 
+           fullPr.node_id, 
+           fullPr.draft
+         );
+       }
+       return;
+    }
+
+    for (const pr of prs) {
+       console.log(`[Enforcer] Processing Workflow Run Complation for PR #${pr.number}`);
+       // We might need to fetch more details if payload is redundant
+       const { data: fullPr } = await context.octokit.pulls.get({
           owner,
           repo,
-          targetBranch,
-          token
-        );
-        console.log('[Enforcer] Repository cloned to:', repoPath);
+          pull_number: pr.number
+       });
+       
+       await handlePrEnforcement(
+         context, 
+         owner, 
+         repo, 
+         fullPr.number, 
+         fullPr.base.ref, 
+         headSha, 
+         fullPr.node_id, 
+         fullPr.draft
+       );
+    }
+  });
+}
 
-        // Check for broken workflows
-        const sha = pull_request.head.sha;
-        console.log(`[Enforcer] Checking workflow status for commit ${sha}...`);
-        
+// Reusable logic
+async function handlePrEnforcement(
+  context: Context,
+  owner: string,
+  repo: string,
+  prNumber: number,
+  targetBranch: string,
+  headSha: string,
+  prNodeId: string,
+  isDraft: boolean | undefined
+) {
+    const stateManager = new StateManager(process.env.STATE_BUCKET!);
+    const julesClient = new JulesClient(process.env.JULES_API_KEY!);
+    const geminiClient = new GeminiClient(process.env.GEMINI_API_KEY!);
+    const repoCloner = new RepoCloner();
+
+    try {
+        // Check workflows status first
+        console.log(`[Enforcer] Checking workflow status for commit ${headSha}...`);
         const { data: { workflow_runs } } = await context.octokit.actions.listWorkflowRunsForRepo({
           owner,
           repo,
-          head_sha: sha,
+          head_sha: headSha,
         });
 
-        // Filter for broken workflows (failure or timed_out)
-        const brokenWorkflows = workflow_runs
-          .filter(run => ['failure', 'timed_out'].includes(run.conclusion || ''))
-          .map(run => run.name);
+        // Current workflow check:
+        // We want to verify if ANY workflow is failed -> Stop and Notify
+        // If ANY key workflow is in_progress -> Stop (wait)
+        // If ALL key workflows are success -> Proceed
+        
+        // Exclude the Enforcer itself if it runs as a workflow (unlikely if it's an App, but good safety)
+        // Also exclude skipped/neutral?
+        
+        const relevantRuns = workflow_runs.filter(run => run.status !== 'skipped' && run.status !== 'neutral' && run.status !== 'cancelled');
 
-        if (brokenWorkflows.length > 0) {
-           console.log('[Enforcer] Broken workflows detected:', brokenWorkflows);
+        const failed = relevantRuns.filter(run => ['failure', 'timed_out'].includes(run.conclusion || ''));
+        const inProgress = relevantRuns.filter(run => ['in_progress', 'queued', 'requested', 'waiting'].includes(run.status || ''));
+
+        if (failed.length > 0) {
+           const uniqueWorkflows = [...new Set(failed.map(r => r.name))];
+           console.log('[Enforcer] Broken workflows detected:', uniqueWorkflows);
            
-           const uniqueWorkflows = [...new Set(brokenWorkflows)];
-           const message = `The following workflows have failed for commit ${sha}:\n\n${uniqueWorkflows.map(w => `- ${w}`).join('\n')}\n\nPlease fix these issues before proceeding.`;
+           const message = `The following workflows have failed for commit ${headSha}:\n\n${uniqueWorkflows.map(w => `- ${w}`).join('\n')}\n\nPlease fix these issues before proceeding.`;
            
            await notifyJules(stateManager, julesClient, message);
            console.log('[Enforcer] Notified Jules about broken workflows. Aborting constitution check.');
            return;
         }
 
-        // 1. Fetch CONSTITUTION.md and TASKS.md
-        console.log('[Enforcer] Fetching repository files...');
-        const [constitutionRes, tasksRes] = await Promise.all([
-          context.octokit.repos.getContent({
-            owner,
-            repo,
-            path: 'CONSTITUTION.md',
-            ref: targetBranch,
-          }),
-          context.octokit.repos.getContent({
-            owner,
-            repo,
-            path: 'TASKS.md',
-            ref: targetBranch,
-          }),
-        ]);
-
-        const constitutionContent = Buffer.from(
-          (constitutionRes.data as any).content,
-          'base64'
-        ).toString('utf-8');
-        const tasksContent = Buffer.from(
-          (tasksRes.data as any).content,
-          'base64'
-        ).toString('utf-8');
-
-        // 2. Get PR diff
-        console.log('[Enforcer] Fetching PR diff...');
-        const diffResponse = await context.octokit.pulls.get({
-          owner,
-          repo,
-          pull_number: prNumber,
-          mediaType: {
-            format: 'diff',
-          },
-        });
-
-        const prDiff = diffResponse.data as unknown as string;
-
-        // 3. Audit with Gemini
-        console.log('[Enforcer] Auditing PR with Gemini...');
-        const auditResult = await geminiClient.auditPR(
-          constitutionContent,
-          tasksContent,
-          prDiff,
-          { cwd: repoPath }
-        );
-
-        console.log('[Enforcer] Audit result:', auditResult);
-
-        // 4. Take action based on audit result
-        if (!auditResult.compliant) {
-          console.log('[Enforcer] Violations found. Posting violations...');
-
-          const violationsList = auditResult.violations
-            .map((v: string, i: number) => `${i + 1}. ${v}`)
-            .join('\n');
-
-          const comment = `## 🚨 Constitution Violation Detected
-
-@jules The following violations were found:
-
-${violationsList}
-
-Please address these issues before merging.`;
-
-          await context.octokit.pulls.createReview({
-            owner,
-            repo,
-            pull_number: prNumber,
-            event: 'REQUEST_CHANGES',
-            body: comment,
-          });
-
-          // Send feedback to Jules
-          const julesMessage = `Constitution Violation Detected:\n\n${violationsList}\n\nPlease fix these issues immediately.`;
-          await notifyJules(stateManager, julesClient, julesMessage);
-
-          console.log('[Enforcer] PR rejected due to violations');
-        } else {
-          console.log('[Enforcer] PR is compliant. Approving and merging...');
-
-          await context.octokit.pulls.createReview({
-            owner,
-            repo,
-            pull_number: prNumber,
-            event: 'APPROVE',
-            body: '✅ Constitution compliant. LGTM!',
-          });
-
-          // Check if PR is a draft and mark as ready if needed
-          if (pull_request.draft) {
-             console.log('[Enforcer] PR is a draft. Marking as ready for review...');
-             try {
-               await context.octokit.graphql(`
-                 mutation($id: ID!) {
-                   markPullRequestReadyForReview(input: {pullRequestId: $id}) {
-                     pullRequest { isDraft }
-                   }
-                 }
-               `, { id: pull_request.node_id });
-               console.log('[Enforcer] Successfully marked PR as ready for review');
-             } catch (error) {
-               console.error('[Enforcer] Failed to mark PR as ready for review:', error);
-               // We try to proceed anyway, but it will likely fail at merge if still draft
-             }
-          }
-
-          await context.octokit.pulls.merge({
-            owner,
-            repo,
-            pull_number: prNumber,
-            merge_method: 'squash',
-          });
-
-          console.log('[Enforcer] PR approved and merged');
+        if (inProgress.length > 0) {
+            const runningWorkflows = [...new Set(inProgress.map(r => r.name))];
+            console.log(`[Enforcer] Workflows still in progress: ${runningWorkflows.join(', ')}. Waiting for completion...`);
+            // Do NOT notify Jules. Just return. We will be triggered again by workflow_run.completed
+            return;
         }
-      } catch (error) {
+
+        console.log('[Enforcer] All workflows passed. Proceeding with Constitution Audit...');
+
+        // 0. Clone repository (target branch)
+        let repoPath: string | undefined;
+        try {
+            // Get installation token
+            const { token } = await context.octokit.auth({ type: 'installation' }) as any;
+            
+            repoPath = await repoCloner.clone(
+              owner,
+              repo,
+              targetBranch,
+              token
+            );
+            console.log('[Enforcer] Repository cloned to:', repoPath);
+
+            // 1. Fetch CONSTITUTION.md and TASKS.md
+            const [constitutionRes, tasksRes] = await Promise.all([
+              context.octokit.repos.getContent({
+                owner,
+                repo,
+                path: 'CONSTITUTION.md',
+                ref: targetBranch,
+              }),
+              context.octokit.repos.getContent({
+                owner,
+                repo,
+                path: 'TASKS.md',
+                ref: targetBranch,
+              }),
+            ]);
+
+            const constitutionContent = Buffer.from(
+              (constitutionRes.data as any).content,
+              'base64'
+            ).toString('utf-8');
+            const tasksContent = Buffer.from(
+              (tasksRes.data as any).content,
+              'base64'
+            ).toString('utf-8');
+
+            // 2. Get PR diff
+            const diffResponse = await context.octokit.pulls.get({
+              owner,
+              repo,
+              pull_number: prNumber,
+              mediaType: {
+                format: 'diff',
+              },
+            });
+
+            const prDiff = diffResponse.data as unknown as string;
+
+            // 3. Audit with Gemini
+            console.log('[Enforcer] Auditing PR with Gemini...');
+            const auditResult = await geminiClient.auditPR(
+              constitutionContent,
+              tasksContent,
+              prDiff,
+              { cwd: repoPath }
+            );
+
+            console.log('[Enforcer] Audit result:', auditResult);
+
+            // 4. Take action
+            if (!auditResult.compliant) {
+               console.log('[Enforcer] Violations found. Posting violations...');
+
+               const violationsList = auditResult.violations
+                .map((v: string, i: number) => `${i + 1}. ${v}`)
+                .join('\n');
+
+               const comment = `## 🚨 Constitution Violation Detected\n\n@jules The following violations were found:\n\n${violationsList}\n\nPlease address these issues before merging.`;
+
+               await context.octokit.pulls.createReview({
+                owner,
+                repo,
+                pull_number: prNumber,
+                event: 'REQUEST_CHANGES',
+                body: comment,
+               });
+
+               const julesMessage = `Constitution Violation Detected:\n\n${violationsList}\n\nPlease fix these issues immediately.`;
+               await notifyJules(stateManager, julesClient, julesMessage);
+
+            } else {
+               console.log('[Enforcer] PR is compliant. Approving and merging...');
+    
+               await context.octokit.pulls.createReview({
+                owner,
+                repo,
+                pull_number: prNumber,
+                event: 'APPROVE',
+                body: '✅ Constitution compliant. LGTM!',
+               });
+    
+                // Check if PR is a draft and mark as ready if needed
+               if (isDraft) {
+                  console.log('[Enforcer] PR is a draft. Marking as ready for review...');
+                  try {
+                    await context.octokit.graphql(`
+                      mutation($id: ID!) {
+                        markPullRequestReadyForReview(input: {pullRequestId: $id}) {
+                          pullRequest { isDraft }
+                        }
+                      }
+                    `, { id: prNodeId });
+                    console.log('[Enforcer] Successfully marked PR as ready for review');
+                  } catch (error) {
+                    console.error('[Enforcer] Failed to mark PR as ready for review:', error);
+                  }
+               }
+    
+               await context.octokit.pulls.merge({
+                owner,
+                repo,
+                pull_number: prNumber,
+                merge_method: 'squash',
+               });
+    
+               console.log('[Enforcer] PR approved and merged');
+            }
+
+        } finally {
+            if (repoPath) {
+              await repoCloner.cleanup(repoPath);
+            }
+        }
+    } catch (error) {
         console.error('[Enforcer] Error processing PR:', error);
-        
-        // Post error comment on PR
         await context.octokit.issues.createComment({
           owner,
           repo,
           issue_number: prNumber,
           body: `❌ Error during PR review: ${error instanceof Error ? error.message : String(error)}`,
         });
-      } finally {
-        if (repoPath) {
-          await repoCloner.cleanup(repoPath);
-        }
-      }
     }
-  );
 }
 
 async function notifyJules(stateManager: StateManager, julesClient: JulesClient, message: string) {
   const state = await stateManager.readState();
   if (state.current_task_id) {
     try {
-      // Try to send to the stored session ID
       await julesClient.sendMessage(state.current_task_id, message);
       console.log('[Enforcer] Sent feedback to Jules');
     } catch (error: any) {
@@ -215,7 +303,6 @@ async function notifyJules(stateManager: StateManager, julesClient: JulesClient,
       if (error.message.includes('not found') || error.message.includes('404')) {
         console.warn('[Enforcer] Current session invalid. Attempting to recover...');
         
-        // Fallback: Try to find an active session (simplified logic for now)
         const status = await julesClient.getStatus();
         const activeSession = status.sessions.find(s => 
           ['IN_PROGRESS', 'AWAITING_USER_FEEDBACK', 'PLANNING'].includes(s.state)
@@ -224,11 +311,9 @@ async function notifyJules(stateManager: StateManager, julesClient: JulesClient,
         if (activeSession) {
            console.log(`[Enforcer] Found alternative active session: ${activeSession.name}. Retrying send...`);
            try {
-             // Extract ID from name
              const altSessionId = activeSession.name.split('/').pop() || '';
              if (altSessionId) {
                await julesClient.sendMessage(altSessionId, message);
-               // Update state to reflect recovery
                await stateManager.updateSessionId(altSessionId);
                console.log(`[Enforcer] Recovered and updated state with session ${altSessionId}`);
              }
