@@ -237,5 +237,172 @@ export function setupServer(app: Probot, options: any) {
     }
   });
 
+  // Debug endpoint: Force PR review (finds latest open PR and triggers Enforcer)
+  router.post('/debug/force-pr-review', async (req: Request, res: Response) => {
+    console.log('[Server] Debug: Force PR review');
+
+    try {
+      const stateBucket = process.env.STATE_BUCKET;
+      const julesApiKey = process.env.JULES_API_KEY;
+      const geminiApiKey = process.env.GEMINI_API_KEY;
+      const githubRepository = process.env.GITHUB_REPOSITORY;
+      const githubBranch = process.env.GITHUB_BRANCH || 'main';
+
+      // Validate environment variables
+      if (!stateBucket) {
+        throw new Error('STATE_BUCKET environment variable is required');
+      }
+      if (!julesApiKey) {
+        throw new Error('JULES_API_KEY environment variable is required');
+      }
+      if (!geminiApiKey) {
+        throw new Error('GEMINI_API_KEY environment variable is required');
+      }
+      if (!githubRepository) {
+        throw new Error('GITHUB_REPOSITORY environment variable is required');
+      }
+
+      const [owner, repo] = githubRepository.split('/');
+
+      // Create Octokit instance with GitHub token
+      const octokit = new Octokit({
+        auth: process.env.GITHUB_TOKEN || process.env.GH_TOKEN
+      });
+
+      // Find the latest open PR
+      console.log('[Debug] Finding latest open PR...');
+      const { data: prs } = await octokit.pulls.list({
+        owner,
+        repo,
+        state: 'open',
+        sort: 'updated',
+        direction: 'desc',
+        per_page: 1,
+      });
+
+      if (prs.length === 0) {
+        res.json({
+          success: false,
+          error: 'No open pull requests found',
+        });
+        return;
+      }
+
+      const pr = prs[0];
+      console.log(`[Debug] Found PR #${pr.number}: ${pr.title}`);
+
+      // Initialize clients
+      const stateManager = new StateManager(stateBucket);
+      const julesClient = new JulesClient(julesApiKey);
+      const geminiClient = new GeminiClient(geminiApiKey);
+      const repoCloner = new RepoCloner();
+
+      // Clone repo, get constitution, audit PR
+      console.log('[Debug] Cloning repository...');
+      const repoPath = await repoCloner.clone(
+        owner,
+        repo,
+        pr.base.ref,
+        process.env.GITHUB_TOKEN || process.env.GH_TOKEN!
+      );
+
+      try {
+        // Fetch CONSTITUTION.md and TASKS.md
+        const [constitutionRes, tasksRes] = await Promise.all([
+          octokit.repos.getContent({
+            owner,
+            repo,
+            path: 'CONSTITUTION.md',
+            ref: pr.base.ref,
+          }),
+          octokit.repos.getContent({
+            owner,
+            repo,
+            path: 'TASKS.md',
+            ref: pr.base.ref,
+          }),
+        ]);
+
+        const constitutionContent = Buffer.from(
+          (constitutionRes.data as any).content,
+          'base64'
+        ).toString('utf-8');
+        const tasksContent = Buffer.from(
+          (tasksRes.data as any).content,
+          'base64'
+        ).toString('utf-8');
+
+        // Get PR diff
+        const diffResponse = await octokit.pulls.get({
+          owner,
+          repo,
+          pull_number: pr.number,
+          mediaType: {
+            format: 'diff',
+          },
+        });
+
+        const prDiff = diffResponse.data as unknown as string;
+
+        // Audit with Gemini
+        console.log('[Debug] Auditing PR with Gemini...');
+        const auditResult = await geminiClient.auditPR(
+          constitutionContent,
+          tasksContent,
+          prDiff,
+          { cwd: repoPath }
+        );
+
+        console.log('[Debug] Audit result:', auditResult);
+
+        // Post review based on audit result
+        if (!auditResult.compliant) {
+          const violationsList = auditResult.violations
+            .map((v: string, i: number) => `${i + 1}. ${v}`)
+            .join('\n');
+
+          await octokit.pulls.createReview({
+            owner,
+            repo,
+            pull_number: pr.number,
+            event: 'REQUEST_CHANGES',
+            body: `## 🚨 Constitution Violation Detected\n\n@jules The following violations were found:\n\n${violationsList}\n\nPlease address these issues before merging.`,
+          });
+
+          res.json({
+            success: true,
+            message: 'PR review completed - violations found',
+            prNumber: pr.number,
+            compliant: false,
+            violations: auditResult.violations,
+          });
+        } else {
+          await octokit.pulls.createReview({
+            owner,
+            repo,
+            pull_number: pr.number,
+            event: 'APPROVE',
+            body: '✅ Constitution compliant. LGTM!',
+          });
+
+          res.json({
+            success: true,
+            message: 'PR review completed - compliant!',
+            prNumber: pr.number,
+            compliant: true,
+          });
+        }
+      } finally {
+        await repoCloner.cleanup(repoPath);
+      }
+    } catch (error) {
+      console.error('[Server] Debug PR review failed:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
+
   console.log('[Server] Routes configured successfully');
 }

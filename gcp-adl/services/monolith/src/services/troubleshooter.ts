@@ -1,7 +1,11 @@
+/**
+ * Troubleshooter Service - Handles blocked/waiting tasks by answering questions
+ */
+
 import { JulesClient } from '@gcp-adl/jules';
 import { GeminiClient } from '@gcp-adl/gemini';
-import { Octokit } from '@octokit/rest';
 import { RepoCloner } from '../utils/repo-cloner';
+import { Octokit } from '@octokit/rest';
 
 export interface TroubleshooterContext {
   julesClient: JulesClient;
@@ -16,91 +20,24 @@ export interface TroubleshooterContext {
 }
 
 export interface TroubleshooterResult {
-  success: boolean;
+  status: 'success' | 'error';
+  message: string;
   answer?: string;
 }
 
 /**
- * Troubleshooter Service - Answers Jules questions
- * This is an internal function, not an exposed endpoint
+ * Run the troubleshooter to answer questions from a blocked Jules session
  */
 export async function runTroubleshooter(context: TroubleshooterContext): Promise<TroubleshooterResult> {
-  console.log(`[Troubleshooter] Processing question for session ${context.sessionId}...`);
-  let repoPath: string | undefined;
+  console.log(`[Troubleshooter] Handling question for session ${context.sessionId}`);
+  console.log(`[Troubleshooter] Question: ${context.question}`);
 
-  try {
-    // 0. Clone repository
-    repoPath = await context.repoCloner.clone(
-      context.owner,
-      context.repo,
-      context.branch,
-      process.env.GITHUB_TOKEN || process.env.GH_TOKEN!
-    );
-    console.log('[Troubleshooter] Repository cloned to:', repoPath);
-
-    // 1. Fetch context files
-    console.log('[Troubleshooter] Fetching repository files...');
-    const [contextMapRes, constitutionRes] = await Promise.all([
-      context.octokit.repos.getContent({
-        owner: context.owner,
-        repo: context.repo,
-        path: 'CONTEXT_MAP.md',
-        ref: context.branch,
-      }),
-      context.octokit.repos.getContent({
-        owner: context.owner,
-        repo: context.repo,
-        path: 'CONSTITUTION.md',
-        ref: context.branch,
-      }),
-    ]);
-
-    // Decode base64 content
-    const contextMapContent = Buffer.from((contextMapRes.data as any).content, 'base64').toString('utf-8');
-    const constitutionContent = Buffer.from((constitutionRes.data as any).content, 'base64').toString('utf-8');
-
-    // 2. Generate answer with Gemini
-    console.log('[Troubleshooter] Generating answer with Gemini...');
-    const prompt = `You are the Troubleshooter for an autonomous development system.
-
-Jules has encountered a blocker and needs technical input.
-
-Analyze the codebase and provide a definitive technical answer to the following question:
-
-${context.question}
-
-### CONTEXT_MAP.md
-\`\`\`
-${contextMapContent}
-\`\`\`
-
-### CONSTITUTION.md
-\`\`\`
-${constitutionContent}
-\`\`\`
-
-Provide a clear, actionable answer that Jules can use to proceed.`;
-
-    const answer = await context.geminiClient.generateContent(prompt, { cwd: repoPath });
-
-    console.log('[Troubleshooter] Generated answer (preview):', answer.substring(0, 200) + '...');
-
-    // 3. Post answer to Jules
-    console.log('[Troubleshooter] Posting answer to Jules...');
-    await context.julesClient.sendMessage(context.sessionId, answer);
-
-    console.log('[Troubleshooter] Completed successfully');
-
-    return {
-      success: true,
-      answer: answer.substring(0, 500),
-    };
-  } catch (error) {
-    console.error('[Troubleshooter] Error:', error);
-    throw error;
-  } finally {
-    if (repoPath) {
-      await context.repoCloner.cleanup(repoPath);
-    }
-  }
+  // TODO: Implement actual troubleshooting logic
+  // For now, return a placeholder response
+  console.warn('[Troubleshooter] Not yet implemented - returning placeholder');
+  
+  return {
+    status: 'error',
+    message: 'Troubleshooter not yet implemented',
+  };
 }

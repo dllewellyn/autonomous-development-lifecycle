@@ -196,6 +196,22 @@
             </button>
             <div id="status" class="status"></div>
         </div>
+
+        <div class="section">
+            <h2>Force PR Review</h2>
+            <p style="color: #666; font-size: 14px; margin-bottom: 15px;">
+                This will:
+            </p>
+            <ul class="info-list">
+                <li>Find the latest open pull request</li>
+                <li>Force the Enforcer to re-review it</li>
+                <li>Audit against CONSTITUTION.md</li>
+            </ul>
+            <button id="reviewBtn" onclick="forceReviewPR()">
+                🔍 Force PR Review
+            </button>
+            <div id="reviewStatus" class="status"></div>
+        </div>
     </div>
 
     <script>
@@ -229,6 +245,49 @@
                     status.innerHTML = `
                         <strong>✗ Error</strong><br>
                         ${data.error || 'Failed to trigger strategist'}
+                    `;
+                }
+            } catch (error) {
+                status.className = 'status error';
+                status.innerHTML = `
+                    <strong>✗ Error</strong><br>
+                    ${error.message || 'Network error occurred'}
+                `;
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        async function forceReviewPR() {
+            const btn = document.getElementById('reviewBtn');
+            const status = document.getElementById('reviewStatus');
+            
+            btn.disabled = true;
+            status.className = 'status loading';
+            status.innerHTML = '<span class="spinner"></span>Finding latest PR and triggering review...';
+
+            try {
+                const response = await fetch('/debug/force-pr-review', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    status.className = 'status success';
+                    status.innerHTML = `
+                        <strong>✓ Success!</strong><br>
+                        ${data.message || 'PR review triggered successfully'}
+                        ${data.prNumber ? '<br>PR #' + data.prNumber : ''}
+                    `;
+                } else {
+                    status.className = 'status error';
+                    status.innerHTML = `
+                        <strong>✗ Error</strong><br>
+                        ${data.error || 'Failed to trigger PR review'}
                     `;
                 }
             } catch (error) {
