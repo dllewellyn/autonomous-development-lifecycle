@@ -1,10 +1,4 @@
 steps:
-  # Debug file structure
-  - name: "alpine"
-    dir: "gcp-adl"
-    args: ["ls", "-R", "."]
-    id: "Debug"
-
   # Build the container image
   - name: "gcr.io/cloud-builders/docker"
     dir: "gcp-adl"
