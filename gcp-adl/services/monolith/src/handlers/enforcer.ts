@@ -289,22 +289,9 @@ async function handlePrEnforcement(
     
                console.log('[Enforcer] PR approved and merged');
 
-               if (mergeResult.data.sha) {
-                  console.log('[Enforcer] Triggering Strategist cycle for merged commit:', mergeResult.data.sha);
-                  
-                  // Get installation token
-                  const { token } = await context.octokit.auth({ type: 'installation' }) as any;
-
-                  await runStrategistCycle({
-                    octokit: context.octokit,
-                    owner,
-                    repo,
-                    branch: targetBranch,
-                    commitSha: mergeResult.data.sha,
-                    installationToken: token,
-                    runPlanner,
-                  });
-               }
+                if (mergeResult.data.sha) {
+                  console.log('[Enforcer] PR merged. Strategist cycle will be triggered by pull_request.closed event.');
+                }
             }
 
         } finally {
