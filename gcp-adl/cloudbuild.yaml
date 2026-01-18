@@ -1,28 +1,28 @@
 steps:
   # Build the container image
   - name: "gcr.io/cloud-builders/docker"
-    dir: "gcp-adl"
+    dir: "."
     args:
       - "build"
       - "--no-cache"
       - "-t"
-      - "$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA"
+      - "$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$_REPO_NAME/$_SERVICE_NAME:$_COMMIT_SHA"
       - "."
       - "-f"
-      - "services/monolith/Dockerfile"
+      - "Dockerfile"
     id: "Build"
 
   # Push the container image to Container Registry
   - name: "gcr.io/cloud-builders/docker"
-    dir: "gcp-adl"
+    dir: "."
     args:
       - "push"
-      - "$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA"
+      - "$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$_REPO_NAME/$_SERVICE_NAME:$_COMMIT_SHA"
     id: "Push"
 
   # Deploy container image to Cloud Run
   - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
-    dir: "gcp-adl"
+    dir: "."
     entrypoint: gcloud
     args:
       - "run"
@@ -30,8 +30,8 @@ steps:
       - "update"
       - "$_SERVICE_NAME"
       - "--platform=managed"
-      - "--image=$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA"
-      - "--labels=managed-by=gcp-cloud-build-deploy-cloud-run,commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID,gcb-trigger-id=$_TRIGGER_ID"
+      - "--image=$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$_REPO_NAME/$_SERVICE_NAME:$_COMMIT_SHA"
+      - "--labels=managed-by=gcp-cloud-build-deploy-cloud-run,commit-sha=$_COMMIT_SHA,gcb-build-id=$BUILD_ID"
       - "--region=$_DEPLOY_REGION"
       - "--quiet"
       - "--set-env-vars"
@@ -41,7 +41,7 @@ steps:
     id: "Deploy"
 
 images:
-  - "$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA"
+  - "$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$_REPO_NAME/$_SERVICE_NAME:$_COMMIT_SHA"
 
 options:
   substitutionOption: ALLOW_LOOSE
@@ -54,7 +54,8 @@ substitutions:
   _DEPLOY_REGION: europe-west2
   _PLATFORM: managed
   _SERVICE_NAME: autonomous-development-lifecycle
-  _TRIGGER_ID: e014f4c4-0ff9-4b4b-938f-af1c90a29a11
+  _REPO_NAME: autonomous-development-lifecycle
+  _COMMIT_SHA: latest
 
 tags:
   - gcp-cloud-build-deploy-cloud-run
