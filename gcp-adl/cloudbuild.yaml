@@ -1,0 +1,62 @@
+steps:
+  # Build the container image
+  - name: "gcr.io/cloud-builders/docker"
+    dir: "gcp-adl"
+    args:
+      - "build"
+      - "--no-cache"
+      - "-t"
+      - "$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA"
+      - "."
+      - "-f"
+      - "services/monolith/Dockerfile"
+    id: "Build"
+
+  # Push the container image to Container Registry
+  - name: "gcr.io/cloud-builders/docker"
+    dir: "gcp-adl"
+    args:
+      - "push"
+      - "$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA"
+    id: "Push"
+
+  # Deploy container image to Cloud Run
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
+    dir: "gcp-adl"
+    entrypoint: gcloud
+    args:
+      - "run"
+      - "services"
+      - "update"
+      - "$_SERVICE_NAME"
+      - "--platform=managed"
+      - "--image=$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA"
+      - "--labels=managed-by=gcp-cloud-build-deploy-cloud-run,commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID,gcb-trigger-id=$_TRIGGER_ID"
+      - "--region=$_DEPLOY_REGION"
+      - "--quiet"
+      - "--set-env-vars"
+      - "GITHUB_REPOSITORY=dllewellyn/autonomous-development-lifecycle,GITHUB_BRANCH=$BRANCH_NAME,NODE_ENV=production"
+      - "--update-secrets"
+      - "APP_ID=github-app-id:latest,PRIVATE_KEY=github-app-private-key:latest,WEBHOOK_SECRET=github-webhook-secret:latest,GEMINI_API_KEY=gemini-api-key:latest,JULES_API_KEY=jules-api-key:latest,STATE_BUCKET=state-bucket-name:latest"
+    id: "Deploy"
+
+images:
+  - "$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA"
+
+options:
+  substitutionOption: ALLOW_LOOSE
+  logging: CLOUD_LOGGING_ONLY
+
+substitutions:
+  _AR_HOSTNAME: europe-west2-docker.pkg.dev
+  _AR_PROJECT_ID: flash-cache-poc
+  _AR_REPOSITORY: cloud-run-source-deploy
+  _DEPLOY_REGION: europe-west2
+  _PLATFORM: managed
+  _SERVICE_NAME: autonomous-development-lifecycle
+  _TRIGGER_ID: e014f4c4-0ff9-4b4b-938f-af1c90a29a11
+
+tags:
+  - gcp-cloud-build-deploy-cloud-run
+  - gcp-cloud-build-deploy-cloud-run-managed
+  - autonomous-development-lifecycle

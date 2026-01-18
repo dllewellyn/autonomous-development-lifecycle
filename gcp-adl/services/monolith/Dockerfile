@@ -8,25 +8,25 @@ RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
 USER appuser
 
 # Copy package.json and package-lock.json for shared libraries and the main service
-COPY ../../shared/state/package.json ./shared/state/package.json
-COPY ../../shared/state/package-lock.json ./shared/state/package-lock.json
-COPY ../../shared/jules/package.json ./shared/jules/package.json
-COPY ../../shared/jules/package-lock.json ./shared/jules/package-lock.json
-COPY ../../shared/gemini/package.json ./shared/gemini/package.json
-COPY ../../shared/gemini/package-lock.json ./shared/gemini/package-lock.json
-COPY ../../shared/github/package.json ./shared/github/package.json
-COPY ../../shared/github/package-lock.json ./shared/github/package-lock.json
-COPY package.json ./package.json
-COPY package-lock.json ./package-lock.json
+COPY shared/state/package.json ./shared/state/package.json
+COPY shared/state/package-lock.json ./shared/state/package-lock.json
+COPY shared/jules/package.json ./shared/jules/package.json
+COPY shared/jules/package-lock.json ./shared/jules/package-lock.json
+COPY shared/gemini/package.json ./shared/gemini/package.json
+COPY shared/gemini/package-lock.json ./shared/gemini/package-lock.json
+COPY shared/github/package.json ./shared/github/package.json
+COPY shared/github/package-lock.json ./shared/github/package-lock.json
+COPY services/monolith/package.json ./package.json
+COPY services/monolith/package-lock.json ./package-lock.json
 
 # Install dependencies (including shared)
 RUN npm ci
 
 # Copy shared source code
-COPY --chown=appuser:appgroup ../../shared/state ./shared/state
-COPY --chown=appuser:appgroup ../../shared/jules ./shared/jules
-COPY --chown=appuser:appgroup ../../shared/gemini ./shared/gemini
-COPY --chown=appuser:appgroup ../../shared/github ./shared/github
+COPY --chown=appuser:appgroup shared/state ./shared/state
+COPY --chown=appuser:appgroup shared/jules ./shared/jules
+COPY --chown=appuser:appgroup shared/gemini ./shared/gemini
+COPY --chown=appuser:appgroup shared/github ./shared/github
 
 # Build shared libraries
 RUN cd shared/state && npm run build && \
@@ -35,8 +35,8 @@ RUN cd shared/state && npm run build && \
     cd ../github && npm run build
 
 # Copy service source code and tsconfig
-COPY --chown=appuser:appgroup tsconfig.json ./
-COPY --chown=appuser:appgroup src ./src
+COPY --chown=appuser:appgroup services/monolith/tsconfig.json ./
+COPY --chown=appuser:appgroup services/monolith/src ./src
 
 # Build the main application
 RUN npm run build
