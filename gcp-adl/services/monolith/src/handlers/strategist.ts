@@ -7,74 +7,63 @@ import { RepoCloner } from '../utils/repo-cloner';
 /**
  * Strategist Handler - Learns from merges and restarts the cycle
  */
-export function setupStrategistHandler(
-  app: Probot,
-  runPlanner: (context: PlannerContext) => Promise<any>
-) {
-  app.on('push', async (context: Context<'push'>) => {
-    const { repository, ref, commits } = context.payload;
-    const owner = repository.owner.login || repository.owner.name || '';
-    const repo = repository.name;
-    const branch = process.env.GITHUB_BRANCH || 'main';
-    
-    console.log(`[Strategist] Processing push to ${branch} in ${owner}/${repo}`);
-    
-    if (!owner) {
-      console.error('[Strategist] Unable to determine repository owner');
-      return;
-    }
 
-    // Only process pushes to main branch
-    if (ref !== `refs/heads/${branch}`) {
-      console.log(`[Strategist] Ignoring push to ${ref}`);
-      return;
-    }
+export interface StrategistContext {
+  octokit: any;
+  owner: string;
+  repo: string;
+  branch: string;
+  commitSha: string;
+  installationToken: string;
+  runPlanner: (context: PlannerContext) => Promise<any>;
+}
 
-    // Skip pushes made by the strategist itself to avoid infinite loops
-    const latestCommit = commits[commits.length - 1];
-    const commitMessage = latestCommit.message;
-    if (
-      commitMessage.includes('chore: update agent memory after merge') ||
-      commitMessage.includes('chore: update tasks after merge')
-    ) {
-      console.log(`[Strategist] Ignoring push from strategist itself: ${commitMessage}`);
-      return;
-    }
+const processingShas = new Set<string>();
 
-    console.log(`[Strategist] Processing push to ${branch} in ${owner}/${repo}`);
+/**
+ * Reusable Strategist Cycle Logic
+ */
+export async function runStrategistCycle(ctx: StrategistContext) {
+  const { octokit, owner, repo, branch, commitSha, installationToken, runPlanner } = ctx;
+  
+  // Simple in-memory lock to prevent double execution (Enforcer vs Push)
+  if (processingShas.has(commitSha)) {
+    console.log(`[Strategist] Already processing cycle for ${commitSha}. Skipping.`);
+    return;
+  }
+  
+  processingShas.add(commitSha);
+  console.log(`[Strategist] Running cycle for ${owner}/${repo} at ${commitSha}`);
 
-    let repoPath: string | undefined;
-    const repoCloner = new RepoCloner();
+  let repoPath: string | undefined;
+  const repoCloner = new RepoCloner();
 
-    try {
+  try {
       // Initialize clients
       const geminiClient = new GeminiClient(process.env.GEMINI_API_KEY!);
       const stateManager = new StateManager(process.env.STATE_BUCKET!);
-
-      // Get installation token
-      const { token } = await context.octokit.auth({ type: 'installation' }) as any;
 
       // 0. Clone repository
       repoPath = await repoCloner.clone(
         owner,
         repo,
         branch,
-        token
+        installationToken
       );
       console.log('[Strategist] Repository cloned to:', repoPath);
 
       // 1. Get the latest commit diff
-      console.log(`[Strategist] Fetching diff for commit ${latestCommit.id}...`);
+      console.log(`[Strategist] Fetching diff for commit ${commitSha}...`);
 
-      const commitData = await context.octokit.repos.getCommit({
+      const commitData = await octokit.repos.getCommit({
         owner,
         repo,
-        ref: latestCommit.id,
+        ref: commitSha,
       });
 
       const mergeDiff = commitData.data.files
         ?.map(
-          (file) =>
+          (file: any) =>
             `--- a/${file.filename}\n+++ b/${file.filename}\n${file.patch || ''}`
         )
         .join('\n\n');
@@ -87,13 +76,13 @@ export function setupStrategistHandler(
       // 2. Fetch AGENTS.md and TASKS.md
       console.log('[Strategist] Fetching repository files...');
       const [agentsRes, tasksRes] = await Promise.all([
-        context.octokit.repos.getContent({
+        octokit.repos.getContent({
           owner,
           repo,
           path: 'AGENTS.md',
           ref: branch,
         }),
-        context.octokit.repos.getContent({
+        octokit.repos.getContent({
           owner,
           repo,
           path: 'TASKS.md',
@@ -128,7 +117,7 @@ export function setupStrategistHandler(
 
       // 5. Update files in the repository
       console.log('[Strategist] Updating AGENTS.md...');
-      await context.octokit.repos.createOrUpdateFileContents({
+      await octokit.repos.createOrUpdateFileContents({
         owner,
         repo,
         path: 'AGENTS.md',
@@ -139,7 +128,7 @@ export function setupStrategistHandler(
       });
 
       console.log('[Strategist] Updating TASKS.md...');
-      await context.octokit.repos.createOrUpdateFileContents({
+      await octokit.repos.createOrUpdateFileContents({
         owner,
         repo,
         path: 'TASKS.md',
@@ -161,20 +150,20 @@ export function setupStrategistHandler(
           process.env.JULES_API_KEY!
         ),
         geminiClient,
-        octokit: context.octokit as any,
+        octokit: octokit as any,
         repoCloner,
         owner,
         repo,
         branch,
-        githubToken: token,
+        githubToken: installationToken,
       });
 
       console.log('[Strategist] Completed successfully');
     } catch (error) {
-      console.error('[Strategist] Error processing push:', error);
+      console.error('[Strategist] Error processing cycle:', error);
       
       // Create an issue to notify about the error
-      await context.octokit.issues.create({
+      await octokit.issues.create({
         owner,
         repo,
         title: '❌ Strategist Error',
@@ -184,9 +173,62 @@ export function setupStrategistHandler(
         labels: ['adl-error'],
       });
     } finally {
+      processingShas.delete(commitSha);
       if (repoPath) {
         await repoCloner.cleanup(repoPath);
       }
     }
+}
+
+/**
+ * Strategist Handler - Learns from merges and restarts the cycle
+ */
+export function setupStrategistHandler(
+  app: Probot,
+  runPlanner: (context: PlannerContext) => Promise<any>
+) {
+  app.on('push', async (context: Context<'push'>) => {
+    const { repository, ref, commits } = context.payload;
+    const owner = repository.owner.login || repository.owner.name || '';
+    const repo = repository.name;
+    const branch = process.env.GITHUB_BRANCH || 'main';
+    
+    console.log(`[Strategist] Processing push to ${branch} in ${owner}/${repo}`);
+    
+    if (!owner) {
+      console.error('[Strategist] Unable to determine repository owner');
+      return;
+    }
+
+    // Only process pushes to main branch
+    if (ref !== `refs/heads/${branch}`) {
+      console.log(`[Strategist] Ignoring push to ${ref}`);
+      return;
+    }
+
+    // Skip pushes made by the strategist itself to avoid infinite loops
+    const latestCommit = commits[commits.length - 1];
+    const commitMessage = latestCommit.message;
+    if (
+      commitMessage.includes('chore: update agent memory after merge') ||
+      commitMessage.includes('chore: update tasks after merge')
+    ) {
+      console.log(`[Strategist] Ignoring push from strategist itself: ${commitMessage}`);
+      return;
+    }
+
+    // Get installation token
+    const { token } = await context.octokit.auth({ type: 'installation' }) as any;
+
+    await runStrategistCycle({
+      octokit: context.octokit,
+      owner,
+      repo,
+      branch,
+      commitSha: latestCommit.id,
+      installationToken: token,
+      runPlanner,
+    });
   });
 }
+

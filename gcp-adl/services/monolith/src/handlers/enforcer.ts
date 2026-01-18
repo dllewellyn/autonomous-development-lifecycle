@@ -3,11 +3,16 @@ import { StateManager } from '@gcp-adl/state';
 import { JulesClient } from '@gcp-adl/jules';
 import { GeminiClient } from '@gcp-adl/gemini';
 import { RepoCloner } from '../utils/repo-cloner';
+import { runStrategistCycle } from './strategist';
+import { PlannerContext } from '../services/planner';
 
 /**
  * Enforcer Handler - Reviews PRs against CONSTITUTION.md
  */
-export function setupEnforcerHandler(app: Probot) {
+export function setupEnforcerHandler(
+  app: Probot,
+  runPlanner: (context: PlannerContext) => Promise<any>
+) {
   // Handler for PR events
   app.on(
     ['pull_request.opened', 'pull_request.synchronize', 'pull_request.reopened'],
@@ -21,7 +26,7 @@ export function setupEnforcerHandler(app: Probot) {
 
       console.log(`[Enforcer] Processing PR #${prNumber} in ${owner}/${repo} (target: ${targetBranch}, sha: ${headSha})`);
 
-      await handlePrEnforcement(context, owner, repo, prNumber, targetBranch, headSha, pull_request.node_id, pull_request.draft);
+      await handlePrEnforcement(context, owner, repo, prNumber, targetBranch, headSha, pull_request.node_id, pull_request.draft, runPlanner);
     }
   );
 
@@ -67,7 +72,8 @@ export function setupEnforcerHandler(app: Probot) {
            fullPr.base.ref, 
            headSha, 
            fullPr.node_id, 
-           fullPr.draft
+           fullPr.draft,
+           runPlanner
          );
        }
        return;
@@ -90,7 +96,8 @@ export function setupEnforcerHandler(app: Probot) {
          fullPr.base.ref, 
          headSha, 
          fullPr.node_id, 
-         fullPr.draft
+         fullPr.draft,
+         runPlanner
        );
     }
   });
@@ -105,7 +112,8 @@ async function handlePrEnforcement(
   targetBranch: string,
   headSha: string,
   prNodeId: string,
-  isDraft: boolean | undefined
+  isDraft: boolean | undefined,
+  runPlanner: (context: PlannerContext) => Promise<any>
 ) {
     const stateManager = new StateManager(process.env.STATE_BUCKET!);
     const julesClient = new JulesClient(process.env.JULES_API_KEY!);
@@ -137,8 +145,15 @@ async function handlePrEnforcement(
         if (failed.length > 0) {
            const uniqueWorkflows = [...new Set(failed.map(r => r.name))];
            console.log('[Enforcer] Broken workflows detected:', uniqueWorkflows);
+
+           // Fetch logs for failed workflows
+           const logs = await Promise.all(
+              failed.map(run => fetchWorkflowLogs(context, owner, repo, run.id, run.name || 'Unknown Workflow'))
+           );
+
+           const logsSection = logs.length > 0 ? `\n\n### Build Logs\n\n${logs.join('\n\n')}` : '';
            
-           const message = `The following workflows have failed for commit ${headSha}:\n\n${uniqueWorkflows.map(w => `- ${w}`).join('\n')}\n\nPlease fix these issues before proceeding.`;
+           const message = `The following workflows have failed for commit ${headSha}:\n\n${uniqueWorkflows.map(w => `- ${w}`).join('\n')}\n\nPlease fix these issues before proceeding.${logsSection}`;
            
            await notifyJules(stateManager, julesClient, message);
            console.log('[Enforcer] Notified Jules about broken workflows. Aborting constitution check.');
@@ -265,7 +280,7 @@ async function handlePrEnforcement(
                   }
                }
     
-               await context.octokit.pulls.merge({
+               const mergeResult = await context.octokit.pulls.merge({
                 owner,
                 repo,
                 pull_number: prNumber,
@@ -273,6 +288,23 @@ async function handlePrEnforcement(
                });
     
                console.log('[Enforcer] PR approved and merged');
+
+               if (mergeResult.data.sha) {
+                  console.log('[Enforcer] Triggering Strategist cycle for merged commit:', mergeResult.data.sha);
+                  
+                  // Get installation token
+                  const { token } = await context.octokit.auth({ type: 'installation' }) as any;
+
+                  await runStrategistCycle({
+                    octokit: context.octokit,
+                    owner,
+                    repo,
+                    branch: targetBranch,
+                    commitSha: mergeResult.data.sha,
+                    installationToken: token,
+                    runPlanner,
+                  });
+               }
             }
 
         } finally {
@@ -326,6 +358,56 @@ async function notifyJules(stateManager: StateManager, julesClient: JulesClient,
       }
     }
   } else {
-    console.log('[Enforcer] No active session found (current_task_id is null). Cannot notify Jules.');
+  }
+}
+
+async function fetchWorkflowLogs(
+  context: Context,
+  owner: string,
+  repo: string,
+  runId: number,
+  workflowName: string
+): Promise<string> {
+  try {
+    console.log(`[Enforcer] Fetching logs for workflow ${workflowName} (run ${runId})...`);
+    
+    // 1. List jobs
+    const { data: { jobs } } = await context.octokit.actions.listJobsForWorkflowRun({
+      owner,
+      repo,
+      run_id: runId,
+    });
+
+    const failedJobs = jobs.filter(job => job.conclusion === 'failure');
+    
+    if (failedJobs.length === 0) {
+      return `No failed jobs found for ${workflowName}.`;
+    }
+
+    const jobLogs = await Promise.all(failedJobs.map(async (job) => {
+      try {
+        const { data: logs } = await context.octokit.actions.downloadJobLogsForWorkflowRun({
+          owner,
+          repo,
+          job_id: job.id,
+        }) as any;
+
+        // If logs is not a string (e.g. redirect), it might be an issue, but octokit usually follows.
+        const logStr = String(logs);
+        const lines = logStr.split('\n');
+        // Take last 100 lines
+        const snippet = lines.slice(-100).join('\n');
+        
+        return `#### Job: ${job.name}\n\`\`\`\n${snippet}\n\`\`\``;
+      } catch (err) {
+        return `#### Job: ${job.name}\n(Failed to fetch logs: ${String(err)})`;
+      }
+    }));
+
+    return `### Workflow: ${workflowName}\n${jobLogs.join('\n')}`;
+
+  } catch (error) {
+    console.error(`[Enforcer] Failed to fetch logs for run ${runId}:`, error);
+    return `(Failed to fetch logs for ${workflowName})`;
   }
 }

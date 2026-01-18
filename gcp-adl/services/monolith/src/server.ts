@@ -19,7 +19,7 @@ import { Octokit } from '@octokit/rest';
 export function setupServer(app: Probot, options: any) {
   // Setup Probot webhook handlers
   console.log('[Server] Setting up Probot handlers...');
-  setupEnforcerHandler(app);
+  setupEnforcerHandler(app, runPlanner);
   setupStrategistHandler(app, runPlanner);
 
   // Get the Express router from Probot options
