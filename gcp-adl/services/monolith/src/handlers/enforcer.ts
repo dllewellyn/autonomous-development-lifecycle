@@ -373,20 +373,36 @@ async function fetchWorkflowLogs(
 
     const jobLogs = await Promise.all(failedJobs.map(async (job) => {
       try {
-        const { data: logs } = await context.octokit.actions.downloadJobLogsForWorkflowRun({
-          owner,
-          repo,
-          job_id: job.id,
-        }) as any;
+        // Helper for retry logic
+        const fetchWithRetry = async (retries = 3, delay = 2000): Promise<string> => {
+          try {
+            const { data: logs } = await context.octokit.actions.downloadJobLogsForWorkflowRun({
+              owner,
+              repo,
+              job_id: job.id,
+            }) as any;
+            return String(logs);
+          } catch (e: any) {
+            // Retry on 404 (Not Found) as logs might be lagging
+            if (retries > 0 && (e.status === 404 || e.message?.includes('Not Found'))) {
+              await new Promise(r => setTimeout(r, delay));
+              return fetchWithRetry(retries - 1, delay * 2);
+            }
+            throw e;
+          }
+        };
 
-        // If logs is not a string (e.g. redirect), it might be an issue, but octokit usually follows.
-        const logStr = String(logs);
+        const logStr = await fetchWithRetry();
         const lines = logStr.split('\n');
         // Take last 100 lines
         const snippet = lines.slice(-100).join('\n');
         
         return `#### Job: ${job.name}\n\`\`\`\n${snippet}\n\`\`\``;
-      } catch (err) {
+      } catch (err: any) {
+        // Handle specific errors gracefully
+        if (err.status === 404 || err.message?.includes('Not Found')) {
+             return `#### Job: ${job.name}\n(Logs are not available. The job might have failed before starting or logs have expired.)`;
+        }
         return `#### Job: ${job.name}\n(Failed to fetch logs: ${String(err)})`;
       }
     }));
