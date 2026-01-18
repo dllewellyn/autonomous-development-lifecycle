@@ -187,6 +187,42 @@ export function setupStrategistHandler(
   app: Probot,
   runPlanner: (context: PlannerContext) => Promise<any>
 ) {
+  // Handle PR merges
+  app.on('pull_request.closed', async (context: Context<'pull_request.closed'>) => {
+    const { pull_request, repository } = context.payload;
+    const owner = repository.owner.login;
+    const repo = repository.name;
+    const branch = process.env.GITHUB_BRANCH || 'main';
+
+    if (!pull_request.merged) {
+      console.log(`[Strategist] PR #${pull_request.number} closed but not merged. Skipping.`);
+      return;
+    }
+
+    if (pull_request.base.ref !== branch) {
+      console.log(`[Strategist] PR #${pull_request.number} merged into ${pull_request.base.ref}, not ${branch}. Skipping.`);
+      return;
+    }
+
+    // Get installation token
+    const { token } = await context.octokit.auth({ type: 'installation' }) as any;
+
+    if (!pull_request.merge_commit_sha) {
+        console.error(`[Strategist] PR #${pull_request.number} merged but no merge_commit_sha found.`);
+        return;
+    }
+
+    await runStrategistCycle({
+      octokit: context.octokit,
+      owner,
+      repo,
+      branch,
+      commitSha: pull_request.merge_commit_sha,
+      installationToken: token,
+      runPlanner,
+    });
+  });
+
   app.on('push', async (context: Context<'push'>) => {
     const { repository, ref, commits } = context.payload;
     const owner = repository.owner.login || repository.owner.name || '';
@@ -207,6 +243,11 @@ export function setupStrategistHandler(
     }
 
     // Skip pushes made by the strategist itself to avoid infinite loops
+    // Also skip if no commits (e.g. branch creation, though unlikely for main)
+    if (!commits || commits.length === 0) {
+        return;
+    }
+
     const latestCommit = commits[commits.length - 1];
     const commitMessage = latestCommit.message;
     if (
