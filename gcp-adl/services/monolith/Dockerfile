@@ -7,38 +7,34 @@ WORKDIR /app
 RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
 USER appuser
 
-# Copy package.json and package-lock.json for shared libraries and the main service
-COPY shared/state/package.json ./shared/state/package.json
-COPY shared/state/package-lock.json ./shared/state/package-lock.json
-COPY shared/jules/package.json ./shared/jules/package.json
-COPY shared/jules/package-lock.json ./shared/jules/package-lock.json
-COPY shared/gemini/package.json ./shared/gemini/package.json
-COPY shared/gemini/package-lock.json ./shared/gemini/package-lock.json
-COPY shared/github/package.json ./shared/github/package.json
-COPY shared/github/package-lock.json ./shared/github/package-lock.json
-COPY services/monolith/package.json ./package.json
-COPY services/monolith/package-lock.json ./package-lock.json
+# Copy shared package files
+COPY --chown=appuser:appgroup shared/state/package.json ./shared/state/package.json
+COPY --chown=appuser:appgroup shared/state/package-lock.json ./shared/state/package-lock.json
+COPY --chown=appuser:appgroup shared/jules/package.json ./shared/jules/package.json
+COPY --chown=appuser:appgroup shared/jules/package-lock.json ./shared/jules/package-lock.json
+COPY --chown=appuser:appgroup shared/gemini/package.json ./shared/gemini/package.json
+COPY --chown=appuser:appgroup shared/gemini/package-lock.json ./shared/gemini/package-lock.json
+COPY --chown=appuser:appgroup shared/github/package.json ./shared/github/package.json
+# shared/github has no package-lock.json
 
-# Install dependencies (including shared)
+# Copy monolith package files
+COPY --chown=appuser:appgroup services/monolith/package.json ./services/monolith/package.json
+COPY --chown=appuser:appgroup services/monolith/package-lock.json ./services/monolith/package-lock.json
+
+# Copy source code
+COPY --chown=appuser:appgroup shared ./shared
+COPY --chown=appuser:appgroup services/monolith ./services/monolith
+
+# Install and build shared
+WORKDIR /app
+RUN cd shared/state && npm ci && npm run build
+RUN cd shared/jules && npm ci && npm run build
+RUN cd shared/gemini && npm ci && npm run build
+RUN cd shared/github && npm install && npm run build
+
+# Install and build monolith
+WORKDIR /app/services/monolith
 RUN npm ci
-
-# Copy shared source code
-COPY --chown=appuser:appgroup shared/state ./shared/state
-COPY --chown=appuser:appgroup shared/jules ./shared/jules
-COPY --chown=appuser:appgroup shared/gemini ./shared/gemini
-COPY --chown=appuser:appgroup shared/github ./shared/github
-
-# Build shared libraries
-RUN cd shared/state && npm run build && \
-    cd ../jules && npm run build && \
-    cd ../gemini && npm run build && \
-    cd ../github && npm run build
-
-# Copy service source code and tsconfig
-COPY --chown=appuser:appgroup services/monolith/tsconfig.json ./
-COPY --chown=appuser:appgroup services/monolith/src ./src
-
-# Build the main application
 RUN npm run build
 
 # Stage 2: Create the production image
@@ -50,19 +46,22 @@ WORKDIR /app
 RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
 USER appuser
 
-# Copy production dependencies from builder stage
-COPY --from=builder --chown=appuser:appgroup /app/node_modules ./node_modules
-COPY --from=builder --chown=appuser:appgroup /app/package.json ./
-COPY --from=builder --chown=appuser:appgroup /app/package-lock.json ./
-
-# Copy built application from builder stage
-COPY --from=builder --chown=appuser:appgroup /app/dist ./dist
-
-# Copy built shared libraries (only dist)
+# Copy shared libs (dist) structure so symlinks work
 COPY --from=builder --chown=appuser:appgroup /app/shared/state/dist ./shared/state/dist
+COPY --from=builder --chown=appuser:appgroup /app/shared/state/package.json ./shared/state/package.json
 COPY --from=builder --chown=appuser:appgroup /app/shared/jules/dist ./shared/jules/dist
+COPY --from=builder --chown=appuser:appgroup /app/shared/jules/package.json ./shared/jules/package.json
 COPY --from=builder --chown=appuser:appgroup /app/shared/gemini/dist ./shared/gemini/dist
+COPY --from=builder --chown=appuser:appgroup /app/shared/gemini/package.json ./shared/gemini/package.json
 COPY --from=builder --chown=appuser:appgroup /app/shared/github/dist ./shared/github/dist
+COPY --from=builder --chown=appuser:appgroup /app/shared/github/package.json ./shared/github/package.json
+
+# Copy monolith
+WORKDIR /app/services/monolith
+COPY --from=builder --chown=appuser:appgroup /app/services/monolith/node_modules ./node_modules
+COPY --from=builder --chown=appuser:appgroup /app/services/monolith/package.json ./
+COPY --from=builder --chown=appuser:appgroup /app/services/monolith/package-lock.json ./
+COPY --from=builder --chown=appuser:appgroup /app/services/monolith/dist ./dist
 
 # Expose port
 EXPOSE 3000
